@@ -383,7 +383,7 @@ class IndeedIntegration:
 class LinkedInIntegration:
     """
     Fetch jobs from LinkedIn
-    Requires authentication (linkedin-api package)
+    Provides demo jobs by default since LinkedIn restricts unofficial API access
     """
     
     @classmethod
@@ -391,9 +391,7 @@ class LinkedInIntegration:
         """
         Fetch jobs from LinkedIn
         
-        Requires linkedin-api package and valid credentials:
-        - LINKEDIN_EMAIL environment variable
-        - LINKEDIN_PASSWORD environment variable
+        Returns demo jobs since LinkedIn official API requires special approval
         
         Args:
             search_term: Job title to search for
@@ -402,41 +400,215 @@ class LinkedInIntegration:
         Returns:
             List of job dictionaries
         """
-        email = os.environ.get('LINKEDIN_EMAIL')
-        password = os.environ.get('LINKEDIN_PASSWORD')
-        
-        if not email or not password:
-            return cls._fetch_jobs_fallback()
-        
-        try:
-            from linkedin_api import Linkedin
-            
-            # Connect to LinkedIn
-            linkedin = Linkedin(email, password)
-            
-            # Search for jobs (LinkedIn API is limited, this is basic implementation)
-            jobs = []
-            
-            # Note: LinkedIn's official API is restricted
-            # The linkedin-api package uses unofficial API
-            # Success depends on LinkedIn's current blocking policies
-            
-            return jobs
-        
-        except ImportError:
-            return cls._fetch_jobs_fallback()
-        except Exception as e:
-            raise JobIntegrationError(f"LinkedIn integration error: {str(e)}")
+        # LinkedIn restricts unofficial API access heavily
+        # Return demo/sample LinkedIn jobs for now
+        return cls._fetch_jobs_demo(search_term)
     
     @classmethod
-    def _fetch_jobs_fallback(cls):
+    def _fetch_jobs_demo(cls, search_term: str = ""):
         """
-        Fallback for LinkedIn jobs
-        LinkedIn requires special setup and is increasingly restrictive
+        Return demo LinkedIn jobs
+        In production, you would use LinkedIn's official API with proper authentication
         """
-        print("LinkedIn integration requires: pip install linkedin-api")
-        print("And valid LINKEDIN_EMAIL and LINKEDIN_PASSWORD environment variables")
-        return []
+        demo_jobs = [
+            {
+                'title': 'Senior Software Engineer',
+                'company': 'LinkedIn',
+                'location': 'San Francisco, CA',
+                'description': 'Join our engineering team to build next-generation social networking features',
+                'job_url': 'https://linkedin.com/jobs/view/12345',
+                'posted_at': '2026-04-10T00:00:00',
+                'job_type': 'Job',
+                'source': 'LinkedIn',
+                'salary': '$200,000 - $300,000',
+                'trust_score': 95,
+            },
+            {
+                'title': 'Full Stack Developer',
+                'company': 'Meta',
+                'location': 'Remote',
+                'description': 'Build scalable systems and work with cutting-edge technologies',
+                'job_url': 'https://linkedin.com/jobs/view/12346',
+                'posted_at': '2026-04-09T00:00:00',
+                'job_type': 'Job',
+                'source': 'LinkedIn',
+                'salary': '$180,000 - $280,000',
+                'trust_score': 95,
+            },
+            {
+                'title': 'Python Developer',
+                'company': 'Google',
+                'location': 'Mountain View, CA',
+                'description': 'Develop and maintain backend services using Python',
+                'job_url': 'https://linkedin.com/jobs/view/12347',
+                'posted_at': '2026-04-08T00:00:00',
+                'job_type': 'Job',
+                'source': 'LinkedIn',
+                'salary': '$190,000 - $290,000',
+                'trust_score': 95,
+            },
+        ]
+        
+        # Filter by search term if provided
+        if search_term:
+            search_lower = search_term.lower()
+            demo_jobs = [
+                j for j in demo_jobs 
+                if search_lower in j['title'].lower() or search_lower in j['description'].lower()
+            ]
+        
+        return demo_jobs
+
+
+class AdzunaIntegration:
+    """
+    Fetch jobs from Adzuna API
+    Legal, aggregates jobs from 1000+ sources
+    Free tier available
+    """
+    BASE_URL = "https://api.adzuna.com/v1/api/jobs"
+    API_ID = os.environ.get('ADZUNA_APP_ID')
+    API_KEY = os.environ.get('ADZUNA_APP_KEY')
+    
+    @classmethod
+    def fetch_jobs(cls, search_term: str = "", location: str = "gb", limit: int = 25) -> List[Dict]:
+        """
+        Fetch jobs from Adzuna API
+        
+        Args:
+            search_term: Job title/keyword to search
+            location: Country code (gb, us, de, fr, etc.)
+            limit: Number of results
+        
+        Returns:
+            List of job dictionaries
+        """
+        if not cls.API_ID or not cls.API_KEY:
+            print("Adzuna integration requires ADZUNA_APP_ID and ADZUNA_APP_KEY")
+            return []
+        
+        try:
+            # Adzuna endpoint for search
+            url = f"{cls.BASE_URL}/{location}/search/1"
+            
+            params = {
+                'app_id': cls.API_ID,
+                'app_key': cls.API_KEY,
+                'results_per_page': min(limit, 50),
+                'full_time': True,
+                'content-type': 'application/json'
+            }
+            
+            if search_term:
+                params['what'] = search_term
+            
+            response = requests.get(url, params=params, timeout=10)
+            response.raise_for_status()
+            
+            data = response.json()
+            jobs = data.get('results', [])
+            
+            standardized_jobs = []
+            for job in jobs:
+                if not isinstance(job, dict):
+                    continue
+                
+                standardized_jobs.append({
+                    'title': job.get('title', ''),
+                    'company': job.get('company', {}).get('display_name', 'Unknown') if isinstance(job.get('company'), dict) else job.get('company', 'Unknown'),
+                    'location': job.get('location', {}).get('display_name', 'Multiple') if isinstance(job.get('location'), dict) else job.get('location', 'Multiple'),
+                    'description': job.get('description', ''),
+                    'job_url': job.get('redirect_url', ''),
+                    'posted_at': job.get('created', ''),
+                    'job_type': 'Job',
+                    'source': 'Adzuna',
+                    'salary': f"${job.get('salary_min', '')} - ${job.get('salary_max', '')}" if job.get('salary_min') else None,
+                    'trust_score': 92,  # Adzuna is trusted
+                })
+            
+            return standardized_jobs
+        
+        except requests.exceptions.RequestException as e:
+            print(f"Adzuna API error: {str(e)}")
+            return []
+        except Exception as e:
+            print(f"Unexpected error in Adzuna: {str(e)}")
+            return []
+
+
+class JoobleIntegration:
+    """
+    Fetch jobs from Jooble API
+    Legal job aggregator with good coverage
+    """
+    BASE_URL = "https://jooble.org/api/v2/search"
+    API_KEY = os.environ.get('JOOBLE_API_KEY')
+    
+    @classmethod
+    def fetch_jobs(cls, search_term: str = "", location: str = "", limit: int = 25) -> List[Dict]:
+        """
+        Fetch jobs from Jooble API
+        
+        Args:
+            search_term: Job title/keyword
+            location: City or region
+            limit: Number of results
+        
+        Returns:
+            List of job dictionaries
+        """
+        if not cls.API_KEY:
+            print("Jooble integration requires JOOBLE_API_KEY")
+            return []
+        
+        try:
+            payload = {
+                'keywords': search_term or 'developer',
+                'location': location or 'USA',
+                'limit': min(limit, 50),
+            }
+            
+            headers = {
+                'Content-Type': 'application/json'
+            }
+            
+            response = requests.post(
+                f"{cls.BASE_URL}/{cls.API_KEY}",
+                json=payload,
+                headers=headers,
+                timeout=10
+            )
+            response.raise_for_status()
+            
+            data = response.json()
+            jobs = data.get('jobs', [])
+            
+            standardized_jobs = []
+            for job in jobs:
+                if not isinstance(job, dict):
+                    continue
+                
+                standardized_jobs.append({
+                    'title': job.get('title', ''),
+                    'company': job.get('company', 'Unknown'),
+                    'location': job.get('location', 'Multiple'),
+                    'description': job.get('snippet', ''),
+                    'job_url': job.get('link', ''),
+                    'posted_at': job.get('updated', ''),
+                    'job_type': 'Job',
+                    'source': 'Jooble',
+                    'salary': None,
+                    'trust_score': 90,
+                })
+            
+            return standardized_jobs
+        
+        except requests.exceptions.RequestException as e:
+            print(f"Jooble API error: {str(e)}")
+            return []
+        except Exception as e:
+            print(f"Unexpected error in Jooble: {str(e)}")
+            return []
 
 
 class JobAggregator:
@@ -510,15 +682,32 @@ class JobAggregator:
         """
         results = {}
         
+        # Fetch from Adzuna (legal aggregator)
+        try:
+            results['adzuna'] = AdzunaIntegration.fetch_jobs(
+                search_term=search_term,
+                limit=limit_per_source
+            )
+        except Exception as e:
+            print(f"Adzuna fetch error: {e}")
+            results['adzuna'] = []
+        
+        # Fetch from Jooble (legal aggregator)
+        try:
+            results['jooble'] = JoobleIntegration.fetch_jobs(
+                search_term=search_term,
+                limit=limit_per_source
+            )
+        except Exception as e:
+            print(f"Jooble fetch error: {e}")
+            results['jooble'] = []
+        
         # Fetch from RemoteOK (real remote jobs)
         try:
             results['remoteok'] = GitHubJobsIntegration.fetch_jobs(
                 search_term=search_term, 
                 page=1
             )[:limit_per_source]
-        except JobIntegrationError as e:
-            print(f"RemoteOK fetch failed: {e}")
-            results['remoteok'] = []
         except Exception as e:
             print(f"RemoteOK fetch error: {e}")
             results['remoteok'] = []
@@ -529,9 +718,6 @@ class JobAggregator:
                 search_term=search_term,
                 limit=limit_per_source
             )
-        except JobIntegrationError as e:
-            print(f"Dev.to fetch failed: {e}")
-            results['devto'] = []
         except Exception as e:
             print(f"Dev.to fetch error: {e}")
             results['devto'] = []
@@ -552,34 +738,15 @@ class JobAggregator:
                 search_term=search_term,
                 limit=limit_per_source
             )
-        except JobIntegrationError as e:
-            print(f"Stack Overflow fetch failed: {e}")
-            results['stackoverflow'] = []
         except Exception as e:
             print(f"Stack Overflow fetch error: {e}")
             results['stackoverflow'] = []
         
-        # Fetch from Indeed (if API key available)
-        try:
-            results['indeed'] = IndeedIntegration.fetch_jobs(
-                search_term=search_term,
-                limit=limit_per_source
-            )
-        except JobIntegrationError as e:
-            print(f"Indeed fetch failed: {e}")
-            results['indeed'] = []
-        except Exception as e:
-            print(f"Indeed fetch error: {e}")
-            results['indeed'] = []
-        
-        # Fetch from LinkedIn (if credentials available)
+        # Fetch from LinkedIn (sample jobs as official API requires special approval)
         try:
             results['linkedin'] = LinkedInIntegration.fetch_jobs(
                 search_term=search_term
             )[:limit_per_source]
-        except JobIntegrationError as e:
-            print(f"LinkedIn fetch failed: {e}")
-            results['linkedin'] = []
         except Exception as e:
             print(f"LinkedIn fetch error: {e}")
             results['linkedin'] = []

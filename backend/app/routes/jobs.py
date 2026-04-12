@@ -6,7 +6,7 @@ Endpoints for fetching jobs from external sources and managing them
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.models import db, Opportunity, User
-from app.services import JobAggregator, JobIntegrationError
+from app.services import JobAggregator, JobIntegrationError, SkillMatcher, RecommendationEngine
 from datetime import datetime
 import logging
 
@@ -311,6 +311,20 @@ def get_available_sources():
     import os
     
     sources = {
+        'adzuna': {
+            'name': 'Adzuna',
+            'status': 'available' if os.environ.get('ADZUNA_APP_ID') else 'requires_config',
+            'requires_auth': True,
+            'description': 'Legal job aggregator from 1000+ sources',
+            'setup_url': 'https://developer.adzuna.com/'
+        },
+        'jooble': {
+            'name': 'Jooble',
+            'status': 'available' if os.environ.get('JOOBLE_API_KEY') else 'requires_config',
+            'requires_auth': True,
+            'description': 'Job aggregator with good coverage',
+            'setup_url': 'https://jooble.org/api/'
+        },
         'remoteok': {
             'name': 'RemoteOK',
             'status': 'available',
@@ -335,20 +349,6 @@ def get_available_sources():
             'requires_auth': False,
             'description': 'Verified job listings from Stack Overflow'
         },
-        'indeed': {
-            'name': 'Indeed',
-            'status': 'available' if os.environ.get('INDEED_API_KEY') else 'requires_config',
-            'requires_auth': True,
-            'description': 'Large job board (requires API key)',
-            'setup_url': 'https://opensource.indeedeng.io/api-documentation/'
-        },
-        'linkedin': {
-            'name': 'LinkedIn',
-            'status': 'requires_config',
-            'requires_auth': True,
-            'description': 'Professional network (requires email/password)',
-            'note': 'Install with: pip install linkedin-api'
-        },
         'demo': {
             'name': 'Demo Jobs',
             'status': 'available',
@@ -362,6 +362,162 @@ def get_available_sources():
         'sources': sources,
         'message': 'Configure missing sources by setting environment variables'
     }), 200
+
+
+@jobs_bp.route('/search', methods=['POST'])
+@jwt_required()
+def search_jobs_by_skills():
+    """
+    Smart job search with skill matching
+    
+    Request body:
+    {
+        "skills": ["python", "react", "aws"],
+        "search_term": "developer (optional)",
+        "limit": 20,
+        "min_match_score": 50
+    }
+    
+    Returns:
+    {
+        "success": true,
+        "results": [
+            {
+                "title": "...",
+                "company": "...",
+                "match_score": 85,
+                "matched_skills": ["python", "aws"],
+                "missing_skills": ["kubernetes"],
+                ...
+            }
+        ],
+        "total": 5
+    }
+    """
+    try:
+        user_id = get_jwt_identity()
+        data = request.get_json() or {}
+        
+        skills = data.get('skills', [])
+        search_term = data.get('search_term', 'developer')
+        limit = min(int(data.get('limit', 20)), 100)
+        min_match_score = float(data.get('min_match_score', 0))
+        
+        if not skills:
+            return jsonify({
+                'success': False,
+                'error': 'Please provide at least one skill'
+            }), 400
+        
+        # Fetch jobs from all sources
+        aggregated = JobAggregator.fetch_all_jobs(
+            search_term=search_term,
+            limit_per_source=10
+        )
+        
+        # Flatten jobs
+        all_jobs = JobAggregator.flatten_jobs(aggregated)
+        
+        # Rank by skill match
+        ranked_jobs = SkillMatcher.rank_jobs_by_skills(all_jobs, skills)
+        
+        # Filter by minimum match score if needed
+        if min_match_score > 0:
+            ranked_jobs = [j for j in ranked_jobs if j.get('match_score', 0) >= min_match_score]
+        
+        # Limit results
+        results = ranked_jobs[:limit]
+        
+        return jsonify({
+            'success': True,
+            'results': results,
+            'total': len(results),
+            'user_skills': skills,
+            'search_term': search_term
+        }), 200
+    
+    except Exception as e:
+        logger.error(f"Error searching jobs: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@jobs_bp.route('/recommendations', methods=['POST'])
+@jwt_required()
+def get_job_recommendations():
+    """
+    Get personalized job recommendations based on user skills
+    
+    Request body:
+    {
+        "skills": ["python", "django", "postgresql"],
+        "top_n": 10
+    }
+    
+    Returns:
+    {
+        "success": true,
+        "recommendations": [
+            {
+                "title": "Senior Python Developer",
+                "company": "...",
+                "match_score": 90,
+                "matched_skills": [...],
+                "missing_skills": [...]
+            }
+        ]
+    }
+    """
+    try:
+        user_id = get_jwt_identity()
+        data = request.get_json() or {}
+        
+        skills = data.get('skills', [])
+        top_n = min(int(data.get('top_n', 10)), 50)
+        
+        if not skills:
+            return jsonify({
+                'success': False,
+                'error': 'Please provide your skills'
+            }), 400
+        
+        # Get all jobs from database (already fetched/stored)
+        all_jobs_db = Opportunity.query.limit(100).all()
+        all_jobs = [
+            {
+                'id': job.id,
+                'title': job.title,
+                'company': job.company,
+                'description': job.description,
+                'location': job.location,
+                'salary': job.salary,
+                'url': job.url,
+                'source': job.source,
+                'trust_score': job.trust_score or 70,
+                'job_type': job.job_type
+            }
+            for job in all_jobs_db
+        ]
+        
+        # Get recommendations
+        recommendations = RecommendationEngine.get_recommendations(
+            skills, all_jobs, top_n
+        )
+        
+        return jsonify({
+            'success': True,
+            'recommendations': recommendations,
+            'total': len(recommendations)
+        }), 200
+    
+    except Exception as e:
+        logger.error(f"Error getting recommendations: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 
 def _add_jobs_to_db(aggregated_jobs):

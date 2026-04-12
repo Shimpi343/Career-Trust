@@ -10,7 +10,23 @@ from .job_integrations import (
     StackOverflowJobsIntegration,
     IndeedIntegration,
     LinkedInIntegration,
+    AdzunaIntegration,
+    JoobleIntegration,
     JobIntegrationError
+)
+
+from .skill_matching import (
+    SkillMatcher,
+    RecommendationEngine
+)
+
+from .resume_parser import (
+    ResumeParser
+)
+
+from .advanced_nlp import (
+    AdvancedSkillMatcher,
+    ResumeAnalyzer
 )
 
 __all__ = [
@@ -21,5 +37,12 @@ __all__ = [
     'StackOverflowJobsIntegration',
     'IndeedIntegration',
     'LinkedInIntegration',
+    'AdzunaIntegration',
+    'JoobleIntegration',
     'JobIntegrationError',
+    'SkillMatcher',
+    'RecommendationEngine',
+    'ResumeParser',
+    'AdvancedSkillMatcher',
+    'ResumeAnalyzer',
 ]

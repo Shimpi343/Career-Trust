@@ -12,6 +12,7 @@ function Header() {
           <li><Link to="/recommendations">Recommendations</Link></li>
           <li><Link to="/jobs/integration">Job Import</Link></li>
           <li><Link to="/dashboard">Dashboard</Link></li>
+          <li><Link to="/profile">Profile</Link></li>
           <li><Link to="/register" className="bg-white text-blue-600 px-4 py-2 rounded font-semibold hover:bg-gray-100">Register</Link></li>
           <li><Link to="/login" className="border-2 border-white px-4 py-2 rounded hover:bg-blue-700">Login</Link></li>
         </ul>

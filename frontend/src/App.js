@@ -8,6 +8,7 @@ import OpportunityDetail from './pages/OpportunityDetail';
 import Recommendations from './pages/Recommendations';
 import JobIntegration from './pages/JobIntegration';
 import Dashboard from './pages/Dashboard';
+import Profile from './pages/Profile';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import './App.css';
@@ -25,6 +26,7 @@ function App() {
             <Route path="/recommendations" element={<Recommendations />} />
             <Route path="/jobs/integration" element={<JobIntegration />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/profile" element={<Profile />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
           </Routes>

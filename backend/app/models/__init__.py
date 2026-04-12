@@ -2,15 +2,19 @@ from app import db
 from datetime import datetime
 
 class User(db.Model):
-    """User model"""
+    """User model with preferences and skills"""
     __tablename__ = 'users'
     
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(200), nullable=False)
-    skills = db.Column(db.JSON)
-    interests = db.Column(db.JSON)
+    skills = db.Column(db.JSON)  # ["python", "react", "aws"]
+    interests = db.Column(db.JSON)  # ["remote", "startup", "fintech"]
+    experience_years = db.Column(db.Integer, default=0)  # Years of experience
+    resume_text = db.Column(db.Text)  # Extracted resume content
+    resume_skills = db.Column(db.JSON)  # Auto-extracted skills from resume
+    preferences = db.Column(db.JSON, default={})  # {min_salary, job_type, location}
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -70,3 +74,20 @@ class ScamReport(db.Model):
     
     def __repr__(self):
         return f'<ScamReport opportunity_id={self.opportunity_id}>'
+
+
+class SavedJob(db.Model):
+    """Bookmarked/saved jobs for users"""
+    __tablename__ = 'saved_jobs'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    opportunity_id = db.Column(db.Integer, db.ForeignKey('opportunities.id'), nullable=False)
+    notes = db.Column(db.Text)  # User notes about this job
+    match_score = db.Column(db.Float)  # Skill match score at time of save
+    saved_at = db.Column(db.DateTime, default=datetime.utcnow)
+    applied = db.Column(db.Boolean, default=False)
+    applied_at = db.Column(db.DateTime)
+    
+    def __repr__(self):
+        return f'<SavedJob user_id={self.user_id} opportunity_id={self.opportunity_id}>'

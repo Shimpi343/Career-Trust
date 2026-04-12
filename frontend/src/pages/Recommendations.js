@@ -1,223 +1,265 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Bookmark, ExternalLink, Star, MapPin, DollarSign } from 'lucide-react';
 import api from '../api';
 
-function Recommendations() {
+export default function Recommendations() {
+  const navigate = useNavigate();
   const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [skills, setSkills] = useState('');
-  const [interests, setInterests] = useState('');
-  const [showProfileForm, setShowProfileForm] = useState(false);
-
-  useEffect(() => {
-    fetchUserProfile();
-    fetchRecommendations();
-  }, []);
+  const [userProfile, setUserProfile] = useState(null);
+  const [selectedSkills, setSelectedSkills] = useState([]);
 
   const fetchUserProfile = async () => {
     try {
-      const token = localStorage.getItem('access_token');
-      if (!token) return;
-
-      const response = await api.get('/auth/me', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      setSkills((response.data.skills || []).join(', '));
-      setInterests((response.data.interests || []).join(', '));
+      const response = await api.get('/profile/me');
+      setUserProfile(response.data.profile);
+      setSelectedSkills(response.data.profile.skills || []);
+      setLoading(false);
     } catch (err) {
-      console.error('Failed to fetch profile:', err);
-    }
-  };
-
-  const fetchRecommendations = async () => {
-    try {
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        setError('Please login to see recommendations');
-        setLoading(false);
-        return;
-      }
-
-      const response = await api.get('/recommendations', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      setRecommendations(response.data.recommendations || []);
-      setError(null);
-    } catch (err) {
-      setError(err.response?.data?.error || 'Failed to fetch recommendations');
-    } finally {
+      setError('Failed to load your profile');
       setLoading(false);
     }
   };
 
-  const handleUpdateProfile = async (e) => {
-    e.preventDefault();
+  const fetchRecommendations = React.useCallback(async () => {
     try {
-      const token = localStorage.getItem('access_token');
-      const skillsList = skills.split(',').map(s => s.trim()).filter(s => s);
-      const interestsList = interests.split(',').map(i => i.trim()).filter(i => i);
-
-      await api.post('/auth/me/profile', {
-        skills: skillsList,
-        interests: interestsList
-      }, {
-        headers: { 'Authorization': `Bearer ${token}` }
+      setLoading(true);
+      const response = await api.post('/jobs/recommendations', {
+        skills: selectedSkills,
+        top_n: 10
       });
-
-      setShowProfileForm(false);
-      fetchRecommendations();
+      setRecommendations(response.data.recommendations || []);
+      setError(null);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to update profile');
+      setError('Failed to fetch recommendations');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedSkills]);
+
+  const saveJob = async (jobId) => {
+    try {
+      const job = recommendations.find(j => j.id === jobId);
+      await api.post('/profile/save-job', {
+        opportunity_id: jobId,
+        match_score: job.match_score,
+        notes: `Saved ${job.title} at ${job.company}`
+      });
+      alert('Job saved successfully!');
+    } catch (err) {
+      alert('Failed to save job');
+      console.error(err);
     }
   };
 
-  if (loading) return <div className="container mx-auto px-4 py-12">Loading recommendations...</div>;
+  useEffect(() => {
+    fetchUserProfile();
+  }, []);
+
+  useEffect(() => {
+    if (selectedSkills.length > 0) {
+      fetchRecommendations();
+    }
+  }, [selectedSkills, fetchRecommendations]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-xl text-gray-600">Loading recommendations...</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="container mx-auto px-4 py-12">
-      <h1 className="text-4xl font-bold mb-8">Personalized Recommendations</h1>
-
-      {/* Profile Section */}
-      <div className="bg-blue-50 border-2 border-blue-200 p-6 rounded-lg mb-8">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-bold text-blue-900">Your Profile</h2>
-          <button
-            onClick={() => setShowProfileForm(!showProfileForm)}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-          >
-            {showProfileForm ? 'Cancel' : 'Edit Profile'}
-          </button>
-        </div>
-
-        {showProfileForm ? (
-          <form onSubmit={handleUpdateProfile} className="space-y-4">
-            <div>
-              <label className="block text-gray-700 font-bold mb-2">
-                Skills (comma-separated)
-              </label>
-              <input
-                type="text"
-                value={skills}
-                onChange={(e) => setSkills(e.target.value)}
-                placeholder="e.g., Python, React, JavaScript"
-                className="w-full border rounded px-3 py-2"
-              />
-              <p className="text-sm text-gray-600 mt-1">
-                Examples: Python, JavaScript, React, Data Science, UI/UX, etc.
-              </p>
-            </div>
-            <div>
-              <label className="block text-gray-700 font-bold mb-2">
-                Interests (comma-separated)
-              </label>
-              <input
-                type="text"
-                value={interests}
-                onChange={(e) => setInterests(e.target.value)}
-                placeholder="e.g., Web Development, Machine Learning"
-                className="w-full border rounded px-3 py-2"
-              />
-              <p className="text-sm text-gray-600 mt-1">
-                Examples: Web Development, Mobile Apps, Cloud, Security, etc.
-              </p>
-            </div>
-            <button
-              type="submit"
-              className="bg-green-600 text-white px-6 py-2 rounded font-bold hover:bg-green-700"
-            >
-              Save Profile
-            </button>
-          </form>
-        ) : (
-          <div>
-            <p className="text-gray-700">
-              <span className="font-bold">Skills:</span> {skills || 'Not specified'}
-            </p>
-            <p className="text-gray-700 mt-2">
-              <span className="font-bold">Interests:</span> {interests || 'Not specified'}
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Recommendations List */}
-      {error && (
-        <div className="bg-red-100 border-2 border-red-200 text-red-700 p-4 rounded mb-6">
-          {error}
-        </div>
-      )}
-
-      {recommendations.length === 0 ? (
-        <div className="bg-yellow-50 border-2 border-yellow-200 p-8 rounded text-center">
-          <p className="text-gray-700 text-lg">
-            {localStorage.getItem('access_token')
-              ? 'No recommendations yet. Update your profile with skills and interests!'
-              : 'Please login to see personalized recommendations'}
+    <div className="min-h-screen bg-gray-50 py-12">
+      <div className="max-w-6xl mx-auto px-6">
+        {/* Header */}
+        <div className="mb-12">
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+            AI-Powered Job Recommendations
+          </h1>
+          <p className="text-gray-600 text-lg">
+            Based on your skills and profile - powered by TF-IDF matching
           </p>
         </div>
-      ) : (
-        <div>
-          <h2 className="text-2xl font-bold mb-4">
-            Recommended for You ({recommendations.length} matches)
-          </h2>
-          <div className="space-y-4">
-            {recommendations.map((opp) => (
+
+        {/* Profile Card */}
+        {userProfile && (
+          <div className="bg-white rounded-lg shadow p-6 mb-12">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Your Skills</h2>
+            <div className="flex flex-wrap gap-2 mb-6">
+              {userProfile.skills && userProfile.skills.length > 0 ? (
+                userProfile.skills.map((skill, idx) => (
+                  <span
+                    key={idx}
+                    className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium"
+                  >
+                    {skill}
+                  </span>
+                ))
+              ) : (
+                <p className="text-gray-600">No skills added. Update your profile to get better recommendations.</p>
+              )}
+            </div>
+            <button
+              onClick={() => navigate('/profile')}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded font-medium"
+            >
+              Update Profile
+            </button>
+          </div>
+        )}
+
+        {error && (
+          <div className="mb-8 p-4 bg-red-100 text-red-700 rounded-lg">
+            {error}
+          </div>
+        )}
+
+        {/* Recommendations List */}
+        {recommendations.length > 0 ? (
+          <div className="space-y-6">
+            <div className="text-gray-600 mb-6">
+              Found {recommendations.length} jobs matching your skills
+            </div>
+
+            {recommendations.map((job) => (
               <div
-                key={opp.id}
-                className="border-2 border-gray-200 rounded-lg p-6 hover:shadow-lg transition"
+                key={job.id}
+                className="bg-white rounded-lg shadow hover:shadow-lg transition p-8"
               >
-                <div className="flex justify-between items-start mb-2">
-                  <div>
-                    <h3 className="text-2xl font-bold text-gray-900">{opp.title}</h3>
-                    <p className="text-gray-600 text-lg">{opp.company}</p>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-3xl font-bold text-green-600">
-                      {opp.match_score}%
+                {/* Job Header */}
+                <div className="flex justify-between items-start mb-4">
+                  <div className="flex-1">
+                    <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                      {job.title}
+                    </h3>
+                    <p className="text-lg text-gray-600 font-medium mb-4 text-blue-600">
+                      {job.company}
+                    </p>
+
+                    {/* Job Details */}
+                    <div className="flex flex-wrap gap-6 mb-4 text-gray-600">
+                      <div className="flex items-center gap-2">
+                        <MapPin size={18} className="text-gray-400" />
+                        <span>{job.location || 'Location not specified'}</span>
+                      </div>
+                      {job.salary && (
+                        <div className="flex items-center gap-2">
+                          <DollarSign size={18} className="text-gray-400" />
+                          <span>{job.salary}</span>
+                        </div>
+                      )}
                     </div>
-                    <p className="text-sm text-gray-600">Match Score</p>
                   </div>
-                </div>
 
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <span className="inline-block bg-purple-200 text-purple-800 px-3 py-1 rounded-full text-sm font-semibold">
-                      {opp.job_type}
-                    </span>
-                  </div>
+                  {/* Match Score Badge */}
                   <div className="text-right">
-                    <span className="inline-block bg-green-200 text-green-800 px-3 py-1 rounded-full text-sm font-semibold">
-                      Trust: {opp.trust_score}/100
-                    </span>
+                    <div className="text-4xl font-bold text-green-600 mb-2">
+                      {job.match_score.toFixed(1)}%
+                    </div>
+                    <p className="text-gray-600 text-sm">Match Score</p>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 mb-4 text-gray-700">
+                {/* Trust Score */}
+                <div className="mb-4 flex items-center gap-2">
+                  <Star fill="gold" size={20} className="text-yellow-500" />
+                  <span className="text-gray-700">
+                    Trust Score: <strong>{job.trust_score}/100</strong>
+                  </span>
+                </div>
+
+                {/* Skills */}
+                <div className="grid grid-cols-2 gap-6 mb-6">
                   <div>
-                    <span className="font-bold">📍 Location:</span> {opp.location}
+                    <h4 className="font-bold text-green-700 mb-2">✅ Matched Skills</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {job.matched_skills && job.matched_skills.length > 0 ? (
+                        job.matched_skills.map((skill, idx) => (
+                          <span
+                            key={idx}
+                            className="bg-green-100 text-green-800 px-2 py-1 rounded text-sm"
+                          >
+                            {skill}
+                          </span>
+                        ))
+                      ) : (
+                        <p className="text-gray-500 text-sm">None</p>
+                      )}
+                    </div>
                   </div>
+
                   <div>
-                    <span className="font-bold">💰 Salary:</span> {opp.salary}
+                    <h4 className="font-bold text-red-700 mb-2">❌ Missing Skills</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {job.missing_skills && job.missing_skills.length > 0 ? (
+                        job.missing_skills.map((skill, idx) => (
+                          <span
+                            key={idx}
+                            className="bg-red-100 text-red-800 px-2 py-1 rounded text-sm"
+                          >
+                            {skill}
+                          </span>
+                        ))
+                      ) : (
+                        <p className="text-gray-500 text-sm">None - Great match!</p>
+                      )}
+                    </div>
                   </div>
                 </div>
 
-                <p className="text-gray-700 mb-4">{opp.description}</p>
+                {/* Description */}
+                {job.description && (
+                  <div className="mb-6">
+                    <h4 className="font-bold text-gray-900 mb-2">Description</h4>
+                    <p className="text-gray-600 line-clamp-3">
+                      {job.description.substring(0, 300)}...
+                    </p>
+                  </div>
+                )}
 
-                <div className="flex gap-2">
-                  <button className="bg-blue-600 text-white px-6 py-2 rounded font-semibold hover:bg-blue-700">
-                    Learn More
+                {/* Actions */}
+                <div className="flex gap-4">
+                  <button
+                    onClick={() => saveJob(job.id)}
+                    className="flex items-center gap-2 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium transition"
+                  >
+                    <Bookmark size={18} />
+                    Save Job
                   </button>
-                  <button className="border-2 border-blue-600 text-blue-600 px-6 py-2 rounded font-semibold hover:bg-blue-50">
-                    Save
-                  </button>
+                  {job.job_url && (
+                    <a
+                      href={job.job_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-6 py-2 bg-gray-200 hover:bg-gray-300 text-gray-900 rounded font-medium transition"
+                    >
+                      <ExternalLink size={18} />
+                      View Job
+                    </a>
+                  )}
                 </div>
               </div>
             ))}
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="bg-white rounded-lg shadow p-12 text-center">
+            <p className="text-xl text-gray-600 mb-4">
+              No recommendations yet. Add skills to your profile to get started!
+            </p>
+            <button
+              onClick={() => navigate('/profile')}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded font-medium"
+            >
+              Update Profile with Skills
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
-
-export default Recommendations;
