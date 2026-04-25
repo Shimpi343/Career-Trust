@@ -99,12 +99,26 @@ def fetch_jobs_from_source(source):
         location = data.get('location', 'USA')
         limit = min(int(data.get('limit', 10)), 50)
         
-        from app.services import GitHubJobsIntegration, DeveloperJobsIntegration, JustJoinITIntegration, StackOverflowJobsIntegration, IndeedIntegration, LinkedInIntegration, JobAggregator
+        from app.services import (
+            GitHubJobsIntegration,
+            DeveloperJobsIntegration,
+            JustJoinITIntegration,
+            StackOverflowJobsIntegration,
+            IndeedIntegration,
+            LinkedInIntegration,
+            AdzunaIntegration,
+            JoobleIntegration,
+            JobAggregator,
+        )
         
         jobs = []
         
         if source == 'remoteok' or source == 'github_jobs':
             jobs = GitHubJobsIntegration.fetch_jobs(search_term=search_term)[:limit]
+        elif source == 'adzuna':
+            jobs = AdzunaIntegration.fetch_jobs(search_term=search_term, limit=limit)
+        elif source == 'jooble':
+            jobs = JoobleIntegration.fetch_jobs(search_term=search_term, limit=limit)
         elif source == 'devto':
             jobs = DeveloperJobsIntegration.fetch_jobs(search_term=search_term, limit=limit)
         elif source == 'justjoinit':
@@ -120,7 +134,7 @@ def fetch_jobs_from_source(source):
         else:
             return jsonify({
                 'success': False,
-                'error': f'Unknown source: {source}. Available: remoteok, devto, justjoinit, stackoverflow, indeed, linkedin, demo'
+                'error': f'Unknown source: {source}. Available: adzuna, jooble, remoteok, devto, justjoinit, stackoverflow, indeed, linkedin, demo'
             }), 400
         
         return jsonify({

@@ -121,7 +121,7 @@ def upload_resume():
             return jsonify({'success': False, 'error': 'No file selected'}), 400
         
         # Validate file type
-        allowed_extensions = {'pdf', 'docx', 'doc'}
+        allowed_extensions = {'pdf', 'docx'}
         file_ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
         
         if file_ext not in allowed_extensions:

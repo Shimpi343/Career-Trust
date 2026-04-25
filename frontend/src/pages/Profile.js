@@ -1,23 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, Plus, X, Save, LogOut } from 'lucide-react';
+import { Upload, Plus, X, Save, ArrowRight } from 'lucide-react';
 import api from '../api';
 
 export default function Profile() {
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState('profile');
-  // Resume upload
   const [uploading, setUploading] = useState(false);
-  const [resumeInfo, setResumeInfo] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
-  // Skills
+  const [resumeInfo, setResumeInfo] = useState(null);
   const [skillInput, setSkillInput] = useState('');
   const [skillsList, setSkillsList] = useState([]);
 
-  // Preferences
   const [preferences, setPreferences] = useState({
     min_salary: '',
     max_salary: '',
@@ -27,25 +25,80 @@ export default function Profile() {
     company_size: []
   });
 
-  const jobTypes = ['full-time', 'part-time', 'contract', 'internship', 'freelance'];
-  const locations = ['remote', 'san francisco', 'new york', 'los angeles', 'chicago'];
-  const industries = ['tech', 'fintech', 'AI/ML', 'healthcare', 'education'];
-  const companySizes = ['startup', 'scale-up', 'mid-size', 'enterprise'];
+  const [locationInput, setLocationInput] = useState('');
+  const [industryInput, setIndustryInput] = useState('');
+
+  const jobTypes = ['full-time', 'part-time', 'internship', 'contract'];
+  const companySizes = ['startup', 'mid-size', 'enterprise'];
+
+  const parseCsvToArray = (value) => {
+    return value
+      .split(',')
+      .map((item) => item.trim().toLowerCase())
+      .filter(Boolean);
+  };
+
+  const extractApiError = (err, fallback) => {
+    const message =
+      err?.response?.data?.error ||
+      err?.response?.data?.msg ||
+      err?.response?.data?.message ||
+      err?.message;
+
+    return typeof message === 'string' && message.trim() ? message : fallback;
+  };
+
+  const fetchProfile = useCallback(async () => {
+    try {
+      const response = await api.get('/profile/me');
+      const profileData = response.data.profile || {};
+      const pref = profileData.preferences || {};
+
+      setProfile(profileData);
+      setSkillsList(profileData.skills || []);
+      setPreferences({
+        min_salary: pref.min_salary || '',
+        max_salary: pref.max_salary || '',
+        job_type: pref.job_type || [],
+        location: pref.location || [],
+        industries: pref.industries || [],
+        company_size: pref.company_size || []
+      });
+      setLocationInput((pref.location || []).join(', '));
+      setIndustryInput((pref.industries || []).join(', '));
+      setError('');
+    } catch (err) {
+      setError(extractApiError(err, 'Failed to load profile'));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     fetchProfile();
-  }, []);
+  }, [fetchProfile]);
 
-  const fetchProfile = async () => {
-    try {
-      const response = await api.get('/profile/me');
-      setProfile(response.data.profile);
-      setSkillsList(response.data.profile.skills || []);
-      setLoading(false);
-    } catch (err) {
-      setError('Failed to load profile');
-      setLoading(false);
+  const addSkill = () => {
+    const trimmed = skillInput.trim().toLowerCase();
+    if (!trimmed) return;
+
+    if (!skillsList.includes(trimmed)) {
+      setSkillsList((prev) => [...prev, trimmed]);
     }
+    setSkillInput('');
+  };
+
+  const removeSkill = (skill) => {
+    setSkillsList((prev) => prev.filter((s) => s !== skill));
+  };
+
+  const togglePreference = (key, value) => {
+    setPreferences((prev) => ({
+      ...prev,
+      [key]: prev[key].includes(value)
+        ? prev[key].filter((v) => v !== value)
+        : [...prev[key], value]
+    }));
   };
 
   const handleResumeUpload = async (e) => {
@@ -53,395 +106,257 @@ export default function Profile() {
     if (!file) return;
 
     setUploading(true);
+    setError('');
+    setSuccess('');
 
     try {
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await api.post('/profile/resume', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      const response = await api.post('/profile/resume', formData);
 
       if (response.data.success) {
         setResumeInfo(response.data);
-        setSkillsList(response.data.extracted_skills || []);
-        alert('Resume uploaded successfully!');
+        if (response.data.extracted_skills?.length) {
+          setSkillsList((prev) => {
+            const merged = new Set([...prev, ...response.data.extracted_skills.map((s) => s.toLowerCase())]);
+            return [...merged];
+          });
+        }
+        setSuccess('Resume uploaded and parsed successfully.');
+        setProfile((prev) => (prev ? { ...prev, resume_text: true } : prev));
       }
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed to upload resume');
+      setError(extractApiError(err, 'Failed to upload resume'));
     } finally {
       setUploading(false);
     }
   };
 
-  const addSkill = () => {
-    if (skillInput.trim() && !skillsList.includes(skillInput.trim())) {
-      setSkillsList([...skillsList, skillInput.trim()]);
-      setSkillInput('');
-    }
-  };
+  const handleSave = async () => {
+    setSaving(true);
+    setError('');
+    setSuccess('');
 
-  const removeSkill = (skill) => {
-    setSkillsList(skillsList.filter(s => s !== skill));
-  };
+    const normalizedPreferences = {
+      ...preferences,
+      location: parseCsvToArray(locationInput),
+      industries: parseCsvToArray(industryInput)
+    };
 
-  const saveSkills = async () => {
     try {
       await api.post('/profile/skills', {
         skills: skillsList,
-        experience_years: profile.experience_years
+        experience_years: profile?.experience_years || 0
       });
-      alert('Skills saved!');
+
+      await api.post('/profile/preferences', normalizedPreferences);
+
+      setPreferences(normalizedPreferences);
+      setSuccess('Profile saved successfully. You can now check match results.');
     } catch (err) {
-      alert('Failed to save skills');
+      setError(extractApiError(err, 'Failed to save profile'));
+    } finally {
+      setSaving(false);
     }
   };
 
-  const togglePreference = (key, value) => {
-    if (preferences[key].includes(value)) {
-      setPreferences({
-        ...preferences,
-        [key]: preferences[key].filter(v => v !== value)
-      });
-    } else {
-      setPreferences({
-        ...preferences,
-        [key]: [...preferences[key], value]
-      });
-    }
-  };
-
-  const savePreferences = async () => {
-    try {
-      await api.post('/profile/preferences', preferences);
-      alert('Preferences saved!');
-    } catch (err) {
-      alert('Failed to save preferences');
-    }
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('access_token');
-    navigate('/login');
-  };
-
-  if (loading) return <div className="text-center py-12">Loading profile...</div>;
+  if (loading) {
+    return (
+      <div className="page-shell">
+        <div className="surface-card px-6 py-16 text-center text-slate-600">Loading profile...</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
-      <div className="max-w-4xl mx-auto px-6">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900">My Profile</h1>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded font-medium"
-          >
-            <LogOut size={18} />
-            Logout
-          </button>
+    <div className="page-shell space-y-6">
+      <section className="surface-card p-6 md:p-8">
+        <span className="section-kicker">Step 1</span>
+        <h1 className="section-title mt-3">Build Your Match Profile</h1>
+        <p className="section-lead mt-3 max-w-3xl">
+          Keep it simple: upload resume, add your skills, and set preferences.
+          Then check recommendations with clear match status.
+        </p>
+
+        {error && <div className="mt-5 rounded-xl border border-rose-200 bg-rose-50 p-4 text-rose-700">{error}</div>}
+        {success && <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-700">{success}</div>}
+      </section>
+
+      <section className="surface-card p-6 md:p-8">
+        <h2 className="text-2xl font-bold text-slate-900">Resume</h2>
+        <p className="mt-2 text-slate-600">Upload PDF or DOCX and we will auto-extract skills.</p>
+
+        <div className="mt-5 rounded-2xl border-2 border-dashed border-slate-300 p-8 text-center transition hover:border-blue-500">
+          <input
+            id="resume-input"
+            type="file"
+            accept=".pdf,.docx"
+            onChange={handleResumeUpload}
+            disabled={uploading}
+            className="hidden"
+          />
+          <label htmlFor="resume-input" className="cursor-pointer">
+            <Upload className="mx-auto text-slate-400" size={40} />
+            <p className="mt-3 text-lg font-semibold text-slate-900">
+              {uploading ? 'Uploading...' : 'Click to upload resume'}
+            </p>
+            <p className="mt-1 text-sm text-slate-500">PDF, DOCX</p>
+          </label>
         </div>
 
-        {error && <div className="mb-4 p-4 bg-red-100 text-red-700 rounded">{error}</div>}
-
-        {/* Tabs */}
-        <div className="flex gap-4 mb-8 border-b">
-          <button
-            onClick={() => setActiveTab('profile')}
-            className={`px-4 py-2 font-medium border-b-2 ${
-              activeTab === 'profile'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            Profile
-          </button>
-          <button
-            onClick={() => setActiveTab('skills')}
-            className={`px-4 py-2 font-medium border-b-2 ${
-              activeTab === 'skills'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            Skills & Resume
-          </button>
-          <button
-            onClick={() => setActiveTab('preferences')}
-            className={`px-4 py-2 font-medium border-b-2 ${
-              activeTab === 'preferences'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            Job Preferences
-          </button>
+        <div className="mt-4 text-sm text-slate-600">
+          Resume status: {profile?.resume_text ? 'Uploaded' : 'Not uploaded'}
         </div>
 
-        {/* Profile Tab */}
-        {activeTab === 'profile' && profile && (
-          <div className="bg-white rounded-lg shadow p-8">
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Email</label>
-                <p className="mt-1 text-lg text-gray-900">{profile.email}</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Username</label>
-                <p className="mt-1 text-lg text-gray-900">{profile.username}</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Experience Level</label>
-                <p className="mt-1 text-lg text-gray-900">
-                  {profile.experience_years ? `${profile.experience_years} years` : 'Not specified'}
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Resume Status</label>
-                {profile.resume_text ? (
-                  <div className="mt-2 p-4 bg-green-50 rounded">
-                    <p className="text-green-800">✅ Resume uploaded ({profile.resume_text.length} characters)</p>
-                  </div>
-                ) : (
-                  <div className="mt-2 p-4 bg-yellow-50 rounded">
-                    <p className="text-yellow-800">⚠️ No resume uploaded yet</p>
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Member Since</label>
-                <p className="text-gray-600">
-                  {new Date(profile.created_at).toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                  })}
-                </p>
-              </div>
-            </div>
+        {resumeInfo && (
+          <div className="mt-4 rounded-xl bg-blue-50 p-4 text-sm text-blue-800">
+            Parsed skills: {resumeInfo.extracted_skills?.length || 0}
           </div>
         )}
+      </section>
 
-        {/* Skills & Resume Tab */}
-        {activeTab === 'skills' && (
-          <div className="space-y-8">
-            {/* Resume Upload */}
-            <div className="bg-white rounded-lg shadow p-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Upload Resume</h2>
-              <p className="text-gray-600 mb-6">
-                Upload your resume to auto-extract skills and experience level. Supports PDF and DOCX files.
-              </p>
+      <section className="surface-card p-6 md:p-8">
+        <h2 className="text-2xl font-bold text-slate-900">Skills</h2>
+        <p className="mt-2 text-slate-600">Add the skills you want to be matched against jobs.</p>
 
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-500 transition cursor-pointer">
-                <input
-                  type="file"
-                  onChange={handleResumeUpload}
-                  accept=".pdf,.docx,.doc"
-                  disabled={uploading}
-                  className="hidden"
-                  id="resume-input"
-                />
-                <label htmlFor="resume-input" className="cursor-pointer">
-                  <Upload className="mx-auto mb-3 text-gray-400" size={48} />
-                  <p className="text-lg font-medium text-gray-900">
-                    {uploading ? 'Uploading...' : 'Drop resume here or click to select'}
-                  </p>
-                  <p className="text-sm text-gray-500 mt-1">PDF, DOCX (max 5MB)</p>
-                </label>
-              </div>
+        <div className="mt-5 flex gap-2">
+          <input
+            type="text"
+            value={skillInput}
+            onChange={(e) => setSkillInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && addSkill()}
+            placeholder="e.g. python, react, sql"
+            className="w-full rounded-xl border border-slate-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <button
+            type="button"
+            onClick={addSkill}
+            className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-3 font-semibold text-white"
+          >
+            <Plus size={16} /> Add
+          </button>
+        </div>
 
-              {resumeInfo && (
-                <div className="mt-6 p-4 bg-green-50 rounded">
-                  <h3 className="font-bold text-green-900 mb-2">✅ Resume Parsed Successfully</h3>
-                  <p className="text-sm text-green-700">Extracted {resumeInfo.extracted_skills?.length || 0} skills</p>
-                  {resumeInfo.experience_years && (
-                    <p className="text-sm text-green-700">Experience: ~{resumeInfo.experience_years} years</p>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Skills Management */}
-            <div className="bg-white rounded-lg shadow p-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Your Skills</h2>
-
-              {/* Add Skill */}
-              <div className="flex gap-2 mb-6">
-                <input
-                  type="text"
-                  value={skillInput}
-                  onChange={(e) => setSkillInput(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && addSkill()}
-                  placeholder="e.g., Python, React, AWS"
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <button
-                  onClick={addSkill}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium"
-                >
-                  <Plus size={18} />
-                  Add Skill
+        <div className="mt-4 flex flex-wrap gap-2">
+          {skillsList.length > 0 ? (
+            skillsList.map((skill) => (
+              <span key={skill} className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700">
+                {skill}
+                <button type="button" onClick={() => removeSkill(skill)} className="text-blue-800">
+                  <X size={14} />
                 </button>
-              </div>
+              </span>
+            ))
+          ) : (
+            <p className="text-sm text-slate-500">No skills added yet.</p>
+          )}
+        </div>
+      </section>
 
-              {/* Skills List */}
-              <div className="flex flex-wrap gap-3 mb-8">
-                {skillsList.length > 0 ? (
-                  skillsList.map((skill, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center gap-2 bg-blue-100 text-blue-800 px-4 py-2 rounded-full"
-                    >
-                      <span>{skill}</span>
-                      <button
-                        onClick={() => removeSkill(skill)}
-                        className="hover:text-blue-900"
-                      >
-                        <X size={16} />
-                      </button>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-gray-500">No skills added yet</p>
-                )}
-              </div>
+      <section className="surface-card p-6 md:p-8">
+        <h2 className="text-2xl font-bold text-slate-900">Preferences</h2>
+        <p className="mt-2 text-slate-600">Set your job preferences for better recommendations.</p>
 
+        <div className="mt-5 grid gap-4 md:grid-cols-2">
+          <input
+            type="number"
+            value={preferences.min_salary}
+            onChange={(e) => setPreferences((prev) => ({ ...prev, min_salary: e.target.value }))}
+            placeholder="Minimum salary"
+            className="rounded-xl border border-slate-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <input
+            type="number"
+            value={preferences.max_salary}
+            onChange={(e) => setPreferences((prev) => ({ ...prev, max_salary: e.target.value }))}
+            placeholder="Maximum salary"
+            className="rounded-xl border border-slate-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
+        <div className="mt-4">
+          <p className="mb-2 text-sm font-semibold text-slate-700">Job Type</p>
+          <div className="flex flex-wrap gap-2">
+            {jobTypes.map((type) => (
               <button
-                onClick={saveSkills}
-                className="flex items-center gap-2 px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded font-medium"
+                key={type}
+                type="button"
+                onClick={() => togglePreference('job_type', type)}
+                className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+                  preferences.job_type.includes(type)
+                    ? 'bg-slate-900 text-white'
+                    : 'bg-slate-100 text-slate-700'
+                }`}
               >
-                <Save size={18} />
-                Save Skills
+                {type}
               </button>
-            </div>
+            ))}
           </div>
-        )}
+        </div>
 
-        {/* Preferences Tab */}
-        {activeTab === 'preferences' && (
-          <div className="bg-white rounded-lg shadow p-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-8">Job Search Preferences</h2>
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <input
+            type="text"
+            value={locationInput}
+            onChange={(e) => setLocationInput(e.target.value)}
+            placeholder="Preferred locations (comma separated)"
+            className="rounded-xl border border-slate-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <input
+            type="text"
+            value={industryInput}
+            onChange={(e) => setIndustryInput(e.target.value)}
+            placeholder="Industries (comma separated)"
+            className="rounded-xl border border-slate-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
 
-            <div className="space-y-8">
-              {/* Salary */}
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Min Salary</label>
-                  <input
-                    type="number"
-                    value={preferences.min_salary}
-                    onChange={(e) => setPreferences({ ...preferences, min_salary: e.target.value })}
-                    placeholder="e.g., 60000"
-                    className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Max Salary</label>
-                  <input
-                    type="number"
-                    value={preferences.max_salary}
-                    onChange={(e) => setPreferences({ ...preferences, max_salary: e.target.value })}
-                    placeholder="e.g., 150000"
-                    className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-
-              {/* Job Type */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">Job Type</label>
-                <div className="flex flex-wrap gap-2">
-                  {jobTypes.map((type) => (
-                    <button
-                      key={type}
-                      onClick={() => togglePreference('job_type', type)}
-                      className={`px-4 py-2 rounded font-medium transition ${
-                        preferences.job_type.includes(type)
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                      }`}
-                    >
-                      {type}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Location */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">Preferred Locations</label>
-                <div className="flex flex-wrap gap-2">
-                  {locations.map((loc) => (
-                    <button
-                      key={loc}
-                      onClick={() => togglePreference('location', loc)}
-                      className={`px-4 py-2 rounded font-medium transition ${
-                        preferences.location.includes(loc)
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                      }`}
-                    >
-                      {loc}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Industries */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">Industries</label>
-                <div className="flex flex-wrap gap-2">
-                  {industries.map((ind) => (
-                    <button
-                      key={ind}
-                      onClick={() => togglePreference('industries', ind)}
-                      className={`px-4 py-2 rounded font-medium transition ${
-                        preferences.industries.includes(ind)
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                      }`}
-                    >
-                      {ind}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Company Size */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">Company Size</label>
-                <div className="flex flex-wrap gap-2">
-                  {companySizes.map((size) => (
-                    <button
-                      key={size}
-                      onClick={() => togglePreference('company_size', size)}
-                      className={`px-4 py-2 rounded font-medium transition ${
-                        preferences.company_size.includes(size)
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                      }`}
-                    >
-                      {size}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
+        <div className="mt-4">
+          <p className="mb-2 text-sm font-semibold text-slate-700">Company Size</p>
+          <div className="flex flex-wrap gap-2">
+            {companySizes.map((size) => (
               <button
-                onClick={savePreferences}
-                className="flex items-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded font-medium text-lg"
+                key={size}
+                type="button"
+                onClick={() => togglePreference('company_size', size)}
+                className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+                  preferences.company_size.includes(size)
+                    ? 'bg-slate-900 text-white'
+                    : 'bg-slate-100 text-slate-700'
+                }`}
               >
-                <Save size={18} />
-                Save Preferences
+                {size}
               </button>
-            </div>
+            ))}
           </div>
-        )}
-      </div>
+        </div>
+      </section>
+
+      <section className="surface-card flex flex-col gap-3 p-6 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h3 className="text-xl font-bold text-slate-900">Ready to check your match?</h3>
+          <p className="mt-1 text-slate-600">Save profile first, then view recommendations.</p>
+        </div>
+
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-5 py-3 font-semibold text-white disabled:opacity-60"
+          >
+            <Save size={16} /> {saving ? 'Saving...' : 'Save Profile'}
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/recommendations')}
+            className="inline-flex items-center gap-2 rounded-full border border-slate-300 px-5 py-3 font-semibold text-slate-800"
+          >
+            View Results <ArrowRight size={16} />
+          </button>
+        </div>
+      </section>
     </div>
   );
 }

@@ -1,126 +1,66 @@
-# CareerTrust: AI-Powered Opportunity Aggregator and Scam Detection System
+# CareerTrust
 
-## Overview
+CareerTrust is an AI-powered career platform that helps students and early-career professionals discover verified opportunities, understand fit, and present themselves more effectively.
 
-CareerTrust is a comprehensive platform that helps students and early-career professionals discover legitimate career opportunities while protecting them from fraudulent job postings and scam emails. The system combines opportunity aggregation with AI-powered scam detection.
+It combines live job aggregation, skill-based recommendations, resume parsing, saved-job tracking, and trust scoring in a single workflow that is easy to explain in a live presentation.
 
-### Key Features
-
-1. **Opportunity Aggregation**: Aggregates career opportunities (internships, hackathons, entry-level jobs) from multiple online platforms
-2. **Personalized Recommendations**: Uses NLP and ML algorithms to recommend opportunities based on user skills and interests
-3. **Scam Detection**: Analyzes job descriptions and emails to identify suspicious patterns and assign Trust Scores
-4. **User-Friendly Interface**: Web application for easy discovery and verification of opportunities
-
-## Project Structure
-
-```
-CareerTrust/
-├── backend/                 # Flask/FastAPI backend
-│   ├── app/
-│   │   ├── routes/         # API endpoints
-│   │   ├── models/         # Database models
-│   │   ├── services/       # Business logic
-│   │   └── __init__.py
-│   ├── requirements.txt    # Python dependencies
-│   └── config.py           # Configuration settings
-├── frontend/               # React/Vue.js frontend
-│   ├── src/
-│   │   ├── components/     # React components
-│   │   ├── pages/         # Page components
-│   │   ├── App.js
-│   │   └── index.js
-│   ├── public/            # Static files
-│   └── package.json
-├── ml_models/             # Machine Learning models
-│   ├── recommendation_engine/  # NLP-based recommendations
-│   ├── scam_detection/         # Fraud detection models
-│   └── requirements.txt
-├── database/              # Database schemas and migrations
-├── tests/                 # Test files
-└── docs/                  # Documentation
-
-```
+## What It Does
+- Aggregates jobs from multiple sources, including RemoteOK, Dev.to, JustJoinIT, Stack Overflow, Adzuna, and Jooble when configured.
+- Scores jobs against a user profile using skill matching and TF-IDF similarity.
+- Parses PDF and DOCX resumes to extract skills automatically.
+- Tracks saved jobs, applications, and profile completeness.
+- Surfaces trust signals so suspicious or low-quality listings are easier to spot.
 
 ## Tech Stack
+- Backend: Flask, SQLAlchemy, Flask-JWT-Extended, Flask-CORS
+- Frontend: React, React Router, Axios, Tailwind CSS
+- Data: SQLite for development, PostgreSQL-compatible schema for production
+- AI / NLP: scikit-learn, TF-IDF, custom skill matching logic
+
+## Repository Layout
+- [backend](backend) - Flask API, models, services, and job integrations
+- [frontend](frontend) - React interface for the product demo
+- [docs](docs) - Supporting documentation
+- [tests](tests) - Endpoint and workflow checks
+- [PRESENTATION_GUIDE.md](PRESENTATION_GUIDE.md) - Demo script and talking points
+
+## Quick Start
 
 ### Backend
-- **Framework**: Flask or FastAPI
-- **Database**: PostgreSQL
-- **ORM**: SQLAlchemy
-- **Authentication**: JWT
-
-### Frontend
-- **Framework**: React.js
-- **Styling**: Tailwind CSS
-- **State Management**: Redux or Context API
-- **HTTP Client**: Axios
-
-### Machine Learning
-- **NLP**: spaCy, NLTK, or Hugging Face Transformers
-- **Classification**: Scikit-learn, XGBoost, or PyTorch
-- **Vectorization**: TF-IDF or Word2Vec
-
-## Installation & Setup
-
-### Prerequisites
-- Python 3.9+
-- Node.js 16+
-- PostgreSQL 12+
-- Git
-
-### Backend Setup
-
 ```bash
 cd backend
-python -m venv venv
-venv\Scripts\activate  # Windows
+python -m venv .venv
+.venv\Scripts\activate
 pip install -r requirements.txt
 python app.py
 ```
 
-### Frontend Setup
-
+### Frontend
 ```bash
 cd frontend
 npm install
 npm start
 ```
 
-## API Endpoints (Planned)
+## Demo Flow
+1. Open the home page and explain the product value.
+2. Create a profile and add skills or upload a resume.
+3. Open Recommendations to show match scores and missing skills.
+4. Open Job Integration to fetch live jobs and import them.
+5. Open Opportunities and Dashboard to show the finished workflow.
 
-- `GET /api/opportunities` - List opportunities
-- `POST /api/opportunities` - Create opportunity
-- `GET /api/opportunities/:id` - Get opportunity details
-- `POST /api/recommendations` - Get personalized recommendations
-- `POST /api/scam-detection/analyze` - Analyze job posting for scams
-- `POST /api/users/register` - User registration
-- `POST /api/users/login` - User login
+## Demo Account
+- Email: `student1@example.com`
+- Password: `password123`
 
-## Database Schema (Planned)
+## Key API Areas
+- Authentication: `/api/auth/login`, `/api/auth/register`
+- Profile: `/api/profile/me`, `/api/profile/skills`, `/api/profile/preferences`
+- Jobs: `/api/jobs/fetch`, `/api/jobs/fetch/<source>`, `/api/jobs/import`, `/api/jobs/recommendations`
+- Analytics: `/api/analytics/dashboard`, `/api/analytics/job-market`
+- Scam detection: `/api/scam-detection/report`, `/api/scam-detection/<opportunity_id>`
 
-- `users` - User profiles and preferences
-- `opportunities` - Job postings and internships
-- `opportunities_source` - Source platform information
-- `user_applications` - User application history
-- `scam_reports` - Flagged suspicious postings
+## Presentation Notes
+This project is strongest when presented as a real product demo rather than a code showcase. Lead with the problem, show the live workflow, then point out the trust layer and recommendation engine.
 
-## Getting Started
-
-1. Clone the repository
-2. Follow Backend Setup instructions
-3. Follow Frontend Setup instructions
-4. Configure database connection in `config.py`
-5. Run migrations
-6. Start both backend and frontend servers
-
-## Contributing
-
-Guidelines for contributing to CareerTrust.
-
-## License
-
-MIT License
-
-## Contact & Support
-
-For issues and questions, please open an issue on GitHub.
+For a structured walkthrough, use [PRESENTATION_GUIDE.md](PRESENTATION_GUIDE.md).

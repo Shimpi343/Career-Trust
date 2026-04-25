@@ -98,6 +98,22 @@ class SkillMatcher:
                     detected_skills.add(canonical)
         
         return list(detected_skills)
+
+    @staticmethod
+    def _skill_in_text(skill: str, text: str) -> bool:
+        """
+        Check whether a normalized skill appears in free text.
+        Handles spaces and symbols in skill names (e.g. 'rest api', 'c#').
+        """
+        if not skill or not text:
+            return False
+
+        lowered_text = text.lower()
+        escaped = re.escape(skill.lower())
+        # Let separators vary so "rest-api" and "rest api" both match.
+        flexible = escaped.replace(r'\ ', r'[\s\-_/]+')
+        pattern = r'(?<!\w)' + flexible + r'(?!\w)'
+        return re.search(pattern, lowered_text) is not None
     
     @staticmethod
     def calculate_match_score(user_skills: List[str], job_description: str) -> Tuple[float, List[str], List[str]]:
@@ -131,11 +147,13 @@ class SkillMatcher:
             missing = [s for s in normalized_user_skills if s not in matched]
             return match_percentage, matched, missing
         
-        # Calculate intersection
-        matched_skills = list(set(normalized_user_skills) & set(job_skills))
-        missing_skills = list(set(normalized_user_skills) - set(job_skills))
-        
-        # Match percentage: matched / total required in job
+        # Calculate intersection with the job requirements.
+        matched_skills = [skill for skill in normalized_user_skills if skill in job_skills]
+
+        # Skills required by the job but not present in the user's profile.
+        missing_skills = [skill for skill in job_skills if skill not in normalized_user_skills]
+
+        # Match percentage: covered job requirements / total job requirements.
         match_percentage = (len(matched_skills) / len(job_skills)) * 100
         
         return round(match_percentage, 1), matched_skills, missing_skills
