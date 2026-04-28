@@ -4,9 +4,6 @@ from flask_jwt_extended import JWTManager
 from flask_cors import CORS
 from config import config
 
-from app.services.notification_service import start_notification_scheduler
-
-
 db = SQLAlchemy()
 jwt = JWTManager()
 
@@ -34,6 +31,7 @@ def create_app(config_name='development'):
     # Create database tables
     with app.app_context():
         db.create_all()
+        from app.services.notification_service import start_notification_scheduler
         start_notification_scheduler(app)
     
     return app
