@@ -7,7 +7,11 @@ load_dotenv()
 
 from app import create_app, db
 
-app = create_app()
+config_name = os.getenv('FLASK_CONFIG')
+if not config_name:
+    config_name = 'production' if os.getenv('DATABASE_URL') else 'development'
+
+app = create_app(config_name)
 
 # Create database tables on startup
 with app.app_context():
