@@ -6,6 +6,7 @@ import Home from './pages/Home';
 import Opportunities from './pages/Opportunities';
 import OpportunityDetail from './pages/OpportunityDetail';
 import Recommendations from './pages/Recommendations';
+import SavedJobs from './pages/SavedJobs';
 import JobIntegration from './pages/JobIntegration';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
@@ -34,6 +35,14 @@ function App() {
             <Route path="/" element={<Home />} />
             <Route path="/opportunities" element={<Opportunities />} />
             <Route path="/opportunities/:id" element={<OpportunityDetail />} />
+            <Route
+              path="/saved-jobs"
+              element={
+                <ProtectedRoute>
+                  <SavedJobs />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="/recommendations"
               element={
