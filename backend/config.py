@@ -19,7 +19,11 @@ class DevelopmentConfig(Config):
 class ProductionConfig(Config):
     """Production configuration"""
     DEBUG = False
-    SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL')
+    database_url = os.getenv('DATABASE_URL')
+    # Fix PostgreSQL URL scheme for SQLAlchemy 2.0+
+    if database_url and database_url.startswith('postgres://'):
+        database_url = database_url.replace('postgres://', 'postgresql://', 1)
+    SQLALCHEMY_DATABASE_URI = database_url
 
 class TestingConfig(Config):
     """Testing configuration"""

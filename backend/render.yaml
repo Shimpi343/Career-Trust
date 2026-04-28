@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: careertrust-backend
+    runtime: python311
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: DATABASE_URL
+        scope: all
+      - key: SECRET_KEY
+        scope: all
+      - key: JWT_SECRET_KEY
+        scope: all
+      - key: SMTP_HOST
+        scope: all
+      - key: SMTP_PORT
+        scope: all
+      - key: SMTP_USERNAME
+        scope: all
+      - key: SMTP_PASSWORD
+        scope: all
+      - key: NOTIFICATIONS_FROM_EMAIL
+        scope: all
+      - key: SMTP_USE_TLS
+        scope: all
+      - key: SMTP_USE_SSL
+        scope: all
+      - key: PYTHON_VERSION
+        value: 3.11
