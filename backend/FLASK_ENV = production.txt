@@ -1,0 +1,21 @@
+FLASK_ENV = production
+
+DATABASE_URL = postgresql://postgre:xVtvnEaZNT5LN10hLwNoDxNaLUJ36Dwq@dpg-d7o7knpj2pic739maecg-a/careertrust
+
+SECRET_KEY = [Generate: Run this in terminal: python -c "import secrets; print(secrets.token_urlsafe(32))"]
+
+JWT_SECRET_KEY = [Generate: Run this in terminal: python -c "import secrets; print(secrets.token_urlsafe(32))"]
+
+SMTP_HOST = smtp.gmail.com
+
+SMTP_PORT = 587
+
+SMTP_USERNAME = kumarishimpi362@gmail.com
+
+SMTP_PASSWORD =lfhxnspoknphxbka
+
+NOTIFICATIONS_FROM_EMAIL = kumarishimpi362@gmail.com
+
+SMTP_USE_TLS = true
+
+SMTP_USE_SSL = false
