@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home as HomeIcon, Star, User, LogIn, UserPlus, Briefcase, LayoutDashboard, Compass, LogOut } from 'lucide-react';
+import { Home as HomeIcon, Star, User, LogIn, UserPlus, Briefcase, LayoutDashboard, Bookmark, LogOut } from 'lucide-react';
 
 function Header() {
   const location = useLocation();
@@ -16,6 +16,7 @@ function Header() {
   const privateNavLinks = [
     { path: '/recommendations', label: 'Recommendations', icon: Star },
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { path: '/saved-jobs', label: 'Saved Jobs', icon: Bookmark },
     { path: '/jobs/integration', label: 'Jobs', icon: Briefcase },
     { path: '/profile', label: 'Profile', icon: User },
   ];

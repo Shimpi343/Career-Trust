@@ -61,7 +61,8 @@ def get_analytics_dashboard():
                 'recent_saves_30d': recent_saves,
                 'average_match_score': round(avg_match, 1),
                 'user_skills': user.skills or [],
-                'profile_completion': _calculate_profile_completion(user)
+                'profile_completion': _calculate_profile_completion(user),
+                'missing_sections': _get_missing_profile_sections(user)
             }
         }), 200
     
@@ -294,6 +295,24 @@ def _calculate_profile_completion(user) -> int:
         completion += 1
     
     return int((completion / total_fields) * 100)
+
+
+def _get_missing_profile_sections(user) -> list:
+    """
+    Return a friendly list of profile sections that still need attention.
+    """
+    missing = []
+
+    if not user.skills:
+        missing.append('Add skills')
+    if not user.experience_years:
+        missing.append('Add experience')
+    if not user.resume_text:
+        missing.append('Upload resume')
+    if not user.preferences or not len(user.preferences):
+        missing.append('Set preferences')
+
+    return missing
 
 
 def _classify_demand(job_count: int, total_jobs: int) -> str:
