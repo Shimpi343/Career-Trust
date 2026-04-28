@@ -29,6 +29,11 @@ from .advanced_nlp import (
     ResumeAnalyzer
 )
 
+from .notification_service import (
+    NotificationService,
+    start_notification_scheduler,
+)
+
 __all__ = [
     'JobAggregator',
     'GitHubJobsIntegration',
@@ -45,4 +50,6 @@ __all__ = [
     'ResumeParser',
     'AdvancedSkillMatcher',
     'ResumeAnalyzer',
+    'NotificationService',
+    'start_notification_scheduler',
 ]

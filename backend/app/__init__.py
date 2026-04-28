@@ -4,6 +4,9 @@ from flask_jwt_extended import JWTManager
 from flask_cors import CORS
 from config import config
 
+from app.services.notification_service import start_notification_scheduler
+
+
 db = SQLAlchemy()
 jwt = JWTManager()
 
@@ -18,7 +21,7 @@ def create_app(config_name='development'):
     CORS(app)
     
     # Register blueprints
-    from app.routes import auth_bp, opportunities_bp, recommendations_bp, scam_detection_bp, jobs_bp, profile_bp, analytics_bp
+    from app.routes import auth_bp, opportunities_bp, recommendations_bp, scam_detection_bp, jobs_bp, profile_bp, analytics_bp, notifications_bp
     app.register_blueprint(auth_bp)
     app.register_blueprint(opportunities_bp)
     app.register_blueprint(recommendations_bp)
@@ -26,9 +29,11 @@ def create_app(config_name='development'):
     app.register_blueprint(jobs_bp)
     app.register_blueprint(profile_bp)
     app.register_blueprint(analytics_bp)
+    app.register_blueprint(notifications_bp)
     
     # Create database tables
     with app.app_context():
         db.create_all()
+        start_notification_scheduler(app)
     
     return app
