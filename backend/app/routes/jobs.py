@@ -56,13 +56,6 @@ def fetch_jobs():
         # Count jobs per source
         source_counts = {source: len(jobs) for source, jobs in aggregated.items()}
         total_jobs = sum(source_counts.values())
-
-        if total_jobs == 0:
-            aggregated = {
-                'demo': JobAggregator.DEMO_JOBS[:limit_per_source]
-            }
-            source_counts = {source: len(jobs) for source, jobs in aggregated.items()}
-            total_jobs = sum(source_counts.values())
         
         # Optionally add to database
         added_count = 0
@@ -144,9 +137,6 @@ def fetch_jobs_from_source(source):
                 'error': f'Unknown source: {source}. Available: adzuna, jooble, remoteok, devto, justjoinit, stackoverflow, indeed, linkedin, demo'
             }), 400
 
-        if not jobs and source != 'demo':
-            jobs = JobAggregator.DEMO_JOBS[:limit]
-        
         return jsonify({
             'success': True,
             'source': source,
@@ -509,17 +499,6 @@ def get_job_recommendations():
         
         # Get all jobs from database (already fetched/stored)
         all_jobs_db = Opportunity.query.limit(100).all()
-        if not all_jobs_db:
-            recommendations = [
-                {**job, 'id': idx}
-                for idx, job in enumerate(JobAggregator.DEMO_JOBS[:top_n], start=1)
-            ]
-            return jsonify({
-                'success': True,
-                'recommendations': recommendations,
-                'total': len(recommendations)
-            }), 200
-
         all_jobs = [
             {
                 'id': job.id,

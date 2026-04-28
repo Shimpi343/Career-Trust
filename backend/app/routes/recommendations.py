@@ -24,12 +24,8 @@ def get_recommendations():
         opportunities = Opportunity.query.all()
         
         if not opportunities:
-            demo_recommendations = [
-                {**job, 'id': idx, 'match_score': 50}
-                for idx, job in enumerate(JobAggregator.DEMO_JOBS[:5], start=1)
-            ]
             return jsonify({
-                'recommendations': demo_recommendations,
+                'recommendations': [],
                 'message': 'No opportunities available yet',
                 'user_skills': user.skills or [],
                 'user_interests': user.interests or []
