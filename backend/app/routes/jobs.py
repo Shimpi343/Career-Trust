@@ -510,7 +510,10 @@ def get_job_recommendations():
         # Get all jobs from database (already fetched/stored)
         all_jobs_db = Opportunity.query.limit(100).all()
         if not all_jobs_db:
-            recommendations = JobAggregator.DEMO_JOBS[:top_n]
+            recommendations = [
+                {**job, 'id': idx}
+                for idx, job in enumerate(JobAggregator.DEMO_JOBS[:top_n], start=1)
+            ]
             return jsonify({
                 'success': True,
                 'recommendations': recommendations,
