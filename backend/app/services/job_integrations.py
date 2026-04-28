@@ -16,6 +16,12 @@ from typing import Dict, List
 import requests
 
 
+class JobIntegrationError(Exception):
+    """Custom exception for job integration errors."""
+
+    pass
+
+
 def _normalize_text(value: str) -> str:
     return re.sub(r'[^a-z0-9\s.+#-]', ' ', (value or '').lower()).strip()
 
