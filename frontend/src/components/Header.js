@@ -11,12 +11,9 @@ function Header() {
 
   const publicNavLinks = [
     { path: '/', label: 'Home', icon: HomeIcon },
-    { path: '/opportunities', label: 'Opportunities', icon: Compass },
   ];
 
   const privateNavLinks = [
-    { path: '/', label: 'Home', icon: HomeIcon },
-    { path: '/opportunities', label: 'Opportunities', icon: Compass },
     { path: '/recommendations', label: 'Recommendations', icon: Star },
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/jobs/integration', label: 'Jobs', icon: Briefcase },
@@ -34,7 +31,7 @@ function Header() {
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/85 backdrop-blur-xl shadow-sm">
       <nav className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
-        <Link to="/" className="flex items-center gap-3 transition hover:opacity-80">
+        <Link to={isAuthenticated ? '/dashboard' : '/'} className="flex items-center gap-3 transition hover:opacity-80">
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-500 text-sm font-extrabold text-white shadow-lg shadow-blue-500/20">
             CT
           </div>

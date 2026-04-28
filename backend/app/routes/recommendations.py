@@ -94,7 +94,8 @@ def get_recommendations():
                 'trust_score': opp.trust_score,
                 'match_score': round(match_score, 1),
                 'description': opp.description[:100] + '...' if len(opp.description) > 100 else opp.description,
-                'source': opp.source
+                'source': opp.source,
+                'url': opp.url
             })
         
         # Sort by match score (descending)

@@ -165,6 +165,19 @@ export default function Recommendations() {
                     <div className="flex-1">
                       <h3 className="mb-2 text-2xl font-bold text-slate-900">{job.title}</h3>
                       <p className="mb-4 text-lg font-medium text-blue-700">{job.company}</p>
+                      { (job.source_url || job.job_url) && (
+                        <div className="mb-2">
+                          <a
+                            href={job.source_url || job.job_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 text-xs text-slate-500 hover:underline break-words"
+                          >
+                            <ExternalLink size={14} />
+                            <span>{job.source_url || job.job_url}</span>
+                          </a>
+                        </div>
+                      )}
 
                       <div className="mb-4 flex flex-wrap gap-6 text-slate-600">
                         <div className="flex items-center gap-2">

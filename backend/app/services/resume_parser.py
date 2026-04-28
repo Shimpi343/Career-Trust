@@ -3,9 +3,10 @@ Resume Parser Service
 Extracts text and skills from PDF/DOC resume files
 """
 
-import PyPDF2
-from docx import Document
 import io
+import re
+import zipfile
+import xml.etree.ElementTree as ET
 from typing import Tuple, List
 
 
@@ -26,6 +27,11 @@ class ResumeParser:
             Extracted text
         """
         try:
+            try:
+                import PyPDF2
+            except ImportError as exc:
+                raise ValueError("PDF parsing requires the PyPDF2 package") from exc
+
             pdf_reader = PyPDF2.PdfReader(io.BytesIO(file_content))
             text = ""
             
@@ -48,9 +54,19 @@ class ResumeParser:
             Extracted text
         """
         try:
-            doc = Document(io.BytesIO(file_content))
-            text = "\n".join([para.text for para in doc.paragraphs])
-            return text
+            with zipfile.ZipFile(io.BytesIO(file_content)) as archive:
+                xml_data = archive.read('word/document.xml')
+
+            root = ET.fromstring(xml_data)
+            namespace = {'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}
+            paragraphs = []
+
+            for paragraph in root.findall('.//w:body/w:p', namespace):
+                text_parts = [node.text for node in paragraph.findall('.//w:t', namespace) if node.text]
+                if text_parts:
+                    paragraphs.append(''.join(text_parts))
+
+            return '\n'.join(paragraphs)
         except Exception as e:
             raise ValueError(f"Error reading DOCX: {str(e)}")
     
