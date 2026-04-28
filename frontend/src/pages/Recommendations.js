@@ -52,11 +52,24 @@ export default function Recommendations() {
   const fetchRecommendations = React.useCallback(async () => {
     try {
       setLoading(true);
-      const response = await api.post('/jobs/recommendations', {
-        skills: selectedSkills,
-        top_n: 10
-      });
-      setRecommendations(response.data.recommendations || []);
+      let recommendationsResponse = null;
+
+      if (selectedSkills.length > 0) {
+        try {
+          recommendationsResponse = await api.post('/jobs/recommendations', {
+            skills: selectedSkills,
+            top_n: 10
+          });
+        } catch (postError) {
+          console.error(postError);
+        }
+      }
+
+      if (!recommendationsResponse || !recommendationsResponse.data?.recommendations?.length) {
+        recommendationsResponse = await api.get('/recommendations');
+      }
+
+      setRecommendations(recommendationsResponse.data.recommendations || []);
       setError(null);
     } catch (err) {
       setError('Failed to fetch recommendations');
@@ -86,9 +99,7 @@ export default function Recommendations() {
   }, []);
 
   useEffect(() => {
-    if (selectedSkills.length > 0) {
-      fetchRecommendations();
-    }
+    fetchRecommendations();
   }, [selectedSkills, fetchRecommendations]);
 
   if (loading) {
