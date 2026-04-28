@@ -181,7 +181,7 @@ export default function JobIntegration() {
           {[
             { label: 'Supported now', value: 'RemoteOK, Dev.to, JustJoinIT, Stack Overflow' },
             { label: 'Optional sources', value: 'Adzuna, Jooble, Indeed, LinkedIn' },
-            { label: 'Demo-friendly', value: 'Preview first, import after review' },
+            { label: 'Live-first', value: 'Preview jobs from real sites, then import' },
           ].map((item) => (
             <div key={item.label} className="rounded-2xl bg-slate-50 p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{item.label}</p>
@@ -313,7 +313,6 @@ export default function JobIntegration() {
                   <optgroup label="Recommended (Most Reliable)">
                     <option value="remoteok">RemoteOK - Remote Jobs Worldwide</option>
                     <option value="devto">Dev.to - Developer Jobs</option>
-                    <option value="demo">Demo Jobs - For Testing</option>
                   </optgroup>
                   <optgroup label="Aggregator APIs">
                     <option value="adzuna">Adzuna - Aggregated Jobs</option>
