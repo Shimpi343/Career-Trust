@@ -1,62 +1,22 @@
 """
 Job Integrations Service
 Handles fetching job opportunities from multiple sources:
-- RemoteOK (Remote jobs worldwide)
+    Returns no results unless a real LinkedIn integration is added.
 - Dev.to Jobs (Developer jobs)
 - JustJoinIT (European tech jobs)
 - Stack Exchange (Stack Overflow jobs)
 - LinkedIn (requires authentication)
 - Indeed (requires API key)
 """
-
-import requests
 import os
 import json
+import re
 from datetime import datetime
 from typing import List, Dict, Optional
 
 
-class JobIntegrationError(Exception):
-    """Custom exception for job integration errors"""
-    pass
-
-
-class GitHubJobsIntegration:
-    """
-    Fetch jobs from RemoteOK API
-    Free API, no authentication required, actual remote jobs
-    (Note: GitHub Jobs API was shut down in 2024)
-    """
-    BASE_URL = "https://remoteok.io/api"
-    
-    @classmethod
-    def fetch_jobs(cls, search_term: str = "", location: str = "", page: int = 1) -> List[Dict]:
-        """
-        Fetch jobs from RemoteOK API
-        
-        Args:
-            search_term: Job title to search for (e.g., 'python')
-            location: Location to search (not used by RemoteOK API)
-            page: Page number
-        
-        Returns:
-            List of job dictionaries
-        """
-        try:
-            params = {}
-            
-            if search_term:
-                params['search'] = search_term
-            
-            # RemoteOK requires a User-Agent header to return JSON instead of HTML
-            headers = {
-                'Accept': 'application/json',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            }
-            
-            response = requests.get(cls.BASE_URL, params=params, timeout=10, headers=headers)
-            response.raise_for_status()
-            
+def _normalize_text(value: str) -> str:
+        return []
             jobs = response.json()
             
             # Filter out metadata (first item at index 0)
@@ -87,6 +47,9 @@ class GitHubJobsIntegration:
                     'salary': salary_str,
                     'trust_score': 90,  # RemoteOK is trusted
                 })
+
+            if search_term:
+                standardized_jobs = [job for job in standardized_jobs if _job_matches_search(job, search_term)]
             
             return standardized_jobs
         
@@ -144,7 +107,11 @@ class DeveloperJobsIntegration:
                 title = job.get('title', '')
                 description = job.get('body_html', '')
                 
-                if search_term and search_term.lower() not in title.lower() + ' ' + description.lower():
+                if not _job_matches_search({
+                    'title': title,
+                    'description': description,
+                    'company': job.get('organization', {}).get('name', 'Unknown'),
+                }, search_term):
                     continue
                 
                 standardized_jobs.append({
@@ -211,7 +178,12 @@ class JustJoinITIntegration:
                 
                 # Filter by search term if provided
                 title = job.get('title', '')
-                if search_term and search_term.lower() not in title.lower():
+                if not _job_matches_search({
+                    'title': title,
+                    'description': job.get('description', '') or f"{job.get('title', '')} position",
+                    'company': job.get('company_name', ''),
+                    'location': ', '.join([job.get('city', ''), job.get('country_code', '')]).strip(', '),
+                }, search_term):
                     continue
                 
                 standardized_jobs.append({
@@ -400,9 +372,9 @@ class LinkedInIntegration:
         Returns:
             List of job dictionaries
         """
-        # LinkedIn restricts unofficial API access heavily
-        # Return demo/sample LinkedIn jobs for now
-        return cls._fetch_jobs_demo(search_term)
+        # LinkedIn does not expose a stable public jobs API here.
+        # Return no results instead of leaking demo jobs into production search.
+        return []
     
     @classmethod
     def _fetch_jobs_demo(cls, search_term: str = ""):
