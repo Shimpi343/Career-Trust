@@ -62,14 +62,6 @@ function Header() {
         <div className="flex items-center gap-2 sm:gap-3">
           {isAuthenticated ? (
             <>
-              <Link
-                to="/profile"
-                className="hidden items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 md:flex"
-              >
-                <User size={18} />
-                <span>Profile</span>
-              </Link>
-
               <button
                 type="button"
                 onClick={handleLogout}
