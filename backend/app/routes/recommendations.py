@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
 from app.models import User, Opportunity
+from app.services import JobAggregator
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
@@ -23,8 +24,12 @@ def get_recommendations():
         opportunities = Opportunity.query.all()
         
         if not opportunities:
+            demo_recommendations = [
+                {**job, 'id': idx, 'match_score': 50}
+                for idx, job in enumerate(JobAggregator.DEMO_JOBS[:5], start=1)
+            ]
             return jsonify({
-                'recommendations': [],
+                'recommendations': demo_recommendations,
                 'message': 'No opportunities available yet',
                 'user_skills': user.skills or [],
                 'user_interests': user.interests or []
