@@ -3,45 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { Bookmark, ExternalLink, Star, MapPin, DollarSign } from 'lucide-react';
 import api from '../api';
 
-const DEMO_JOBS = [
-  {
-    id: 1,
-    title: 'Senior Python Developer',
-    company: 'Tech Startup Inc',
-    location: 'Remote',
-    description: 'We are looking for an experienced Python developer to join our growing team. You will work on backend services and APIs.',
-    job_url: 'https://example.com/jobs/1',
-    trust_score: 100,
-    match_score: 86.5,
-    matched_skills: ['python'],
-    missing_skills: ['aws', 'docker'],
-  },
-  {
-    id: 2,
-    title: 'Frontend React Engineer',
-    company: 'Digital Solutions',
-    location: 'San Francisco, CA',
-    description: 'Join our design-focused team to build modern web applications. Experience with React, TypeScript, and Tailwind CSS preferred.',
-    job_url: 'https://example.com/jobs/2',
-    trust_score: 100,
-    match_score: 79.2,
-    matched_skills: ['react'],
-    missing_skills: ['typescript', 'tailwind'],
-  },
-  {
-    id: 3,
-    title: 'Full Stack Developer (JavaScript)',
-    company: 'Innovation Labs',
-    location: 'Remote',
-    description: 'Full-stack opportunity using Node.js and React. Work with cutting-edge technologies in a fast-paced environment.',
-    job_url: 'https://example.com/jobs/3',
-    trust_score: 100,
-    match_score: 74.1,
-    matched_skills: ['javascript', 'react'],
-    missing_skills: ['node.js'],
-  },
-];
-
 export default function Recommendations() {
   const navigate = useNavigate();
   const [recommendations, setRecommendations] = useState([]);
@@ -109,7 +70,7 @@ export default function Recommendations() {
       }
 
       const recommendationsList = recommendationsResponse.data.recommendations || [];
-      setRecommendations(recommendationsList.length > 0 ? recommendationsList : DEMO_JOBS);
+      setRecommendations(recommendationsList);
       setError(null);
     } catch (err) {
       setError('Failed to fetch recommendations');
@@ -341,9 +302,9 @@ export default function Recommendations() {
           </div>
         ) : (
           <div className="surface-card p-8 text-center">
-            <h2 className="text-2xl font-bold text-slate-900">No recommendations yet</h2>
+            <h2 className="text-2xl font-bold text-slate-900">No live recommendations yet</h2>
             <p className="mt-3 text-slate-600">
-              Add a few skills in your profile, then import jobs so the recommendation engine has data to rank.
+              Add a few skills in your profile, then import live jobs so the recommendation engine has data to rank.
             </p>
             <div className="mt-6 flex flex-wrap justify-center gap-3">
               <button

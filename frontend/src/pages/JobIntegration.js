@@ -2,61 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, Database, ExternalLink, Upload, WifiOff } from 'lucide-react';
 import api from '../api';
 
-const DEMO_JOBS = [
-  {
-    id: 1,
-    title: 'Senior Python Developer',
-    company: 'Tech Startup Inc',
-    location: 'Remote',
-    description: 'We are looking for an experienced Python developer to join our growing team. You will work on backend services and APIs.',
-    job_url: 'https://example.com/jobs/1',
-    posted_at: '2026-04-10T00:00:00',
-    job_type: 'Job',
-    source: 'Demo',
-    salary: '$120,000 - $160,000',
-    trust_score: 100,
-  },
-  {
-    id: 2,
-    title: 'Frontend React Engineer',
-    company: 'Digital Solutions',
-    location: 'San Francisco, CA',
-    description: 'Join our design-focused team to build modern web applications. Experience with React, TypeScript, and Tailwind CSS preferred.',
-    job_url: 'https://example.com/jobs/2',
-    posted_at: '2026-04-09T00:00:00',
-    job_type: 'Job',
-    source: 'Demo',
-    salary: '$100,000 - $140,000',
-    trust_score: 100,
-  },
-  {
-    id: 3,
-    title: 'Full Stack Developer (JavaScript)',
-    company: 'Innovation Labs',
-    location: 'Remote',
-    description: 'Full-stack opportunity using Node.js and React. Work with cutting-edge technologies in a fast-paced environment.',
-    job_url: 'https://example.com/jobs/3',
-    posted_at: '2026-04-08T00:00:00',
-    job_type: 'Job',
-    source: 'Demo',
-    salary: '$110,000 - $150,000',
-    trust_score: 100,
-  },
-  {
-    id: 4,
-    title: 'Data Scientist',
-    company: 'AI Analytics Corp',
-    location: 'NYC, NY',
-    description: 'Apply machine learning to real-world problems. We use Python, TensorFlow, and cloud platforms.',
-    job_url: 'https://example.com/jobs/4',
-    posted_at: '2026-04-07T00:00:00',
-    job_type: 'Job',
-    source: 'Demo',
-    salary: '$130,000 - $180,000',
-    trust_score: 100,
-  },
-];
-
 export default function JobIntegration() {
   const [activeTab, setActiveTab] = useState('status');
   const [searchTerm, setSearchTerm] = useState('');
@@ -118,22 +63,26 @@ export default function JobIntegration() {
       });
 
       if (response.data.success) {
-        const jobs = response.data.jobs && response.data.jobs.length > 0 ? response.data.jobs : DEMO_JOBS;
+        const jobs = response.data.jobs || [];
         setFetchedJobs(jobs);
-        setImportStatus({
-          type: 'success',
-          message: response.data.jobs && response.data.jobs.length > 0
-            ? `Fetched ${response.data.count} jobs from ${response.data.source}`
-            : `No live jobs returned from ${response.data.source}; showing demo jobs instead`
-        });
 
-        const importedJobs = await importFetchedJobs(jobs);
-        if (importedJobs) {
+        if (jobs.length > 0) {
           setImportStatus({
             type: 'success',
-            message: response.data.jobs && response.data.jobs.length > 0
-              ? `Fetched ${response.data.count} jobs from ${response.data.source} and imported ${importedJobs.added} of them (${importedJobs.duplicates} duplicates skipped)`
-              : `Imported ${importedJobs.added} demo jobs (${importedJobs.duplicates} duplicates skipped)`
+            message: `Fetched ${response.data.count} jobs from ${response.data.source}`
+          });
+
+          const importedJobs = await importFetchedJobs(jobs);
+          if (importedJobs) {
+            setImportStatus({
+              type: 'success',
+              message: `Fetched ${response.data.count} jobs from ${response.data.source} and imported ${importedJobs.added} of them (${importedJobs.duplicates} duplicates skipped)`
+            });
+          }
+        } else {
+          setImportStatus({
+            type: 'error',
+            message: `No live jobs matched "${searchTerm || selectedSource}" yet. Try a broader search term or another source.`
           });
         }
       }
@@ -165,13 +114,12 @@ export default function JobIntegration() {
         Object.values(response.data.aggregated || {}).forEach((jobs) => {
           allJobs.push(...jobs);
         });
-        const jobsToShow = allJobs.length > 0 ? allJobs : DEMO_JOBS;
-        setFetchedJobs(jobsToShow);
+        setFetchedJobs(allJobs);
         setImportStatus({
-          type: 'success',
+          type: allJobs.length > 0 ? 'success' : 'error',
           message: allJobs.length > 0
             ? `Fetched ${response.data.total_jobs} jobs from all sources`
-            : 'No live jobs returned from sources; showing demo jobs instead'
+            : `No live jobs matched "${searchTerm || 'software engineer'}" yet. Try a broader search term or another source.`
         });
       }
     } catch (error) {
