@@ -1,10 +1,31 @@
 import axios from 'axios';
 
-const API_BASE_URL =
-  process.env.REACT_APP_API_URL ||
-  (window.location.hostname === 'localhost'
-    ? 'http://localhost:5000/api'
-    : 'https://career-trust.onrender.com/api');
+const LOCAL_API_URL = 'http://localhost:5000/api';
+const DEFAULT_PRODUCTION_API_URL = 'https://careertrust-backend.onrender.com/api';
+
+const resolveApiBaseUrl = () => {
+  const runtimeConfigUrl =
+    typeof window !== 'undefined' && window.__CAREER_TRUST_API_URL__
+      ? window.__CAREER_TRUST_API_URL__
+      : '';
+
+  const envUrl = process.env.REACT_APP_API_URL || runtimeConfigUrl;
+  if (envUrl) {
+    return envUrl.replace(/\/$/, '');
+  }
+
+  if (typeof window !== 'undefined') {
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      return LOCAL_API_URL;
+    }
+
+    return DEFAULT_PRODUCTION_API_URL;
+  }
+
+  return DEFAULT_PRODUCTION_API_URL;
+};
+
+const API_BASE_URL = resolveApiBaseUrl();
 
 const api = axios.create({
   baseURL: API_BASE_URL,

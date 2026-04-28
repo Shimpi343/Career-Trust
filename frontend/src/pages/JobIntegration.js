@@ -45,6 +45,28 @@ const DEMO_JOBS = [
   },
 ];
 
+const mergeJobLists = (aggregatedJobs = {}) => {
+  return Object.values(aggregatedJobs).reduce((allJobs, sourceJobs) => {
+    if (Array.isArray(sourceJobs)) {
+      allJobs.push(...sourceJobs);
+    }
+
+    return allJobs;
+  }, []);
+};
+
+const normalizeJobsResponse = (data) => {
+  if (Array.isArray(data?.jobs)) {
+    return data.jobs;
+  }
+
+  if (data?.aggregated && typeof data.aggregated === 'object') {
+    return mergeJobLists(data.aggregated);
+  }
+
+  return [];
+};
+
 export default function JobIntegration() {
   const [activeTab, setActiveTab] = useState('status');
   const [searchTerm, setSearchTerm] = useState('');
@@ -56,18 +78,7 @@ export default function JobIntegration() {
 
   const sourceEntries = useMemo(() => Object.entries(sourcesList), [sourcesList]);
 
-  useEffect(() => {
-    setSourcesList({
-      remoteok: { name: 'RemoteOK', status: 'available', requires_auth: false, description: 'Remote job board with real jobs worldwide' },
-      devto: { name: 'Dev.to Jobs', status: 'available', requires_auth: false, description: 'Tech and developer jobs from the Dev.to community' },
-      stackoverflow: { name: 'Stack Overflow', status: 'available', requires_auth: false, description: 'Verified job listings from Stack Overflow' },
-      justjoinit: { name: 'JustJoinIT', status: 'available', requires_auth: false, description: 'European tech jobs and startups' },
-    });
-    setFetchedJobs(DEMO_JOBS);
-    setImportStatus({ type: 'success', message: 'Showing demo jobs only.' });
-  }, []);
-
-  const fetchAvailableSources = async () => {
+  const loadSourceStatus = async () => {
     try {
       const response = await api.get('/jobs/sources');
       if (response.data.success) {
@@ -75,12 +86,52 @@ export default function JobIntegration() {
       }
     } catch (error) {
       console.error('Error fetching sources:', error);
-      setImportStatus({
-        type: 'error',
-        message: 'Unable to load source status right now.'
+      setSourcesList({
+        remoteok: { name: 'RemoteOK', status: 'available', requires_auth: false, description: 'Remote job board with real jobs worldwide' },
+        devto: { name: 'Dev.to Jobs', status: 'available', requires_auth: false, description: 'Tech and developer jobs from the Dev.to community' },
+        stackoverflow: { name: 'Stack Overflow', status: 'available', requires_auth: false, description: 'Verified job listings from Stack Overflow' },
+        justjoinit: { name: 'JustJoinIT', status: 'available', requires_auth: false, description: 'European tech jobs and startups' },
       });
     }
   };
+
+  const loadDemoFallback = (message) => {
+    setFetchedJobs(DEMO_JOBS);
+    setImportStatus({
+      type: 'success',
+      message,
+    });
+  };
+
+  const fetchJobsFromEndpoint = async (endpoint, payload, fallbackMessage) => {
+    setLoading(true);
+    setImportStatus(null);
+
+    try {
+      const response = await api.post(endpoint, payload);
+      const jobs = normalizeJobsResponse(response.data);
+
+      if (jobs.length > 0) {
+        setFetchedJobs(jobs);
+        setImportStatus({
+          type: 'success',
+          message: `Fetched ${jobs.length} live jobs from the API.`,
+        });
+      } else {
+        loadDemoFallback(fallbackMessage);
+      }
+    } catch (error) {
+      console.error(`Error calling ${endpoint}:`, error);
+      loadDemoFallback(fallbackMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadSourceStatus();
+    loadDemoFallback('Use the fetch buttons to load live jobs. A demo preview is shown until then.');
+  }, []);
 
   const importFetchedJobs = async (jobs) => {
     if (!jobs || jobs.length === 0) {
@@ -101,21 +152,27 @@ export default function JobIntegration() {
   };
 
   const handleFetchFromSource = async () => {
-    setLoading(false);
-    setFetchedJobs(DEMO_JOBS);
-    setImportStatus({
-      type: 'success',
-      message: 'Demo jobs loaded from sample sources only.'
-    });
+    await fetchJobsFromEndpoint(
+      `/jobs/fetch/${selectedSource}`,
+      {
+        search_term: searchTerm,
+        location: '',
+        limit: 10,
+      },
+      'Live source fetch is unavailable right now, so the demo preview is shown instead.'
+    );
   };
 
   const handleFetchAllSources = async () => {
-    setLoading(false);
-    setFetchedJobs(DEMO_JOBS);
-    setImportStatus({
-      type: 'success',
-      message: 'Demo jobs loaded from all sample sources.'
-    });
+    await fetchJobsFromEndpoint(
+      '/jobs/fetch',
+      {
+        search_term: searchTerm,
+        limit_per_source: 10,
+        auto_add: false,
+      },
+      'Live aggregation is unavailable right now, so the demo preview is shown instead.'
+    );
   };
 
   const handleImportJobs = async () => {
@@ -127,10 +184,24 @@ export default function JobIntegration() {
       return;
     }
 
-    setImportStatus({
-      type: 'success',
-      message: `Demo preview ready: ${fetchedJobs.length} sample jobs shown.`
-    });
+    setLoading(true);
+
+    try {
+      const response = await importFetchedJobs(fetchedJobs);
+      if (response) {
+        setImportStatus({
+          type: 'success',
+          message: `Imported ${response.added} jobs (${response.duplicates} duplicates skipped).`,
+        });
+      } else {
+        setImportStatus({
+          type: 'error',
+          message: 'No jobs were imported.',
+        });
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
