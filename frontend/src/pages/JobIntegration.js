@@ -32,6 +32,24 @@ export default function JobIntegration() {
     }
   };
 
+  const importFetchedJobs = async (jobs) => {
+    if (!jobs || jobs.length === 0) {
+      return null;
+    }
+
+    try {
+      const response = await api.post('/jobs/import', {
+        jobs,
+        deduplicate: true
+      });
+
+      return response.data.success ? response.data : null;
+    } catch (error) {
+      console.error('Error auto-importing jobs:', error);
+      return null;
+    }
+  };
+
   const handleFetchFromSource = async () => {
     setLoading(true);
     setImportStatus(null);
@@ -45,11 +63,20 @@ export default function JobIntegration() {
       });
 
       if (response.data.success) {
-        setFetchedJobs(response.data.jobs || []);
+        const jobs = response.data.jobs || [];
+        setFetchedJobs(jobs);
         setImportStatus({
           type: 'success',
           message: `Fetched ${response.data.count} jobs from ${response.data.source}`
         });
+
+        const importedJobs = await importFetchedJobs(jobs);
+        if (importedJobs) {
+          setImportStatus({
+            type: 'success',
+            message: `Fetched ${response.data.count} jobs from ${response.data.source} and imported ${importedJobs.added} of them (${importedJobs.duplicates} duplicates skipped)`
+          });
+        }
       }
     } catch (error) {
       console.error('Error fetching jobs:', error);
@@ -71,7 +98,7 @@ export default function JobIntegration() {
       const response = await api.post('/jobs/fetch', {
         search_term: searchTerm || 'software engineer',
         limit_per_source: 5,
-        auto_add: false
+        auto_add: true
       });
 
       if (response.data.success) {
