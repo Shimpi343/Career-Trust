@@ -1,7 +1,6 @@
 """
 Job Integrations Service
 Handles fetching job opportunities from multiple sources:
-- RemoteOK (Remote jobs worldwide)
 - Dev.to Jobs (Developer jobs)
 - JustJoinIT (European tech jobs)
 - Stack Exchange (Stack Overflow jobs)
@@ -9,87 +8,98 @@ Handles fetching job opportunities from multiple sources:
 - Indeed (requires API key)
 """
 
-import requests
 import os
-import json
+import re
 from datetime import datetime
-from typing import List, Dict, Optional
+from typing import Dict, List
+
+import requests
 
 
 class JobIntegrationError(Exception):
-    """Custom exception for job integration errors"""
+    """Custom exception for job integration errors."""
+
     pass
+
+
+def _normalize_text(value: str) -> str:
+    return re.sub(r'[^a-z0-9\s.+#-]', ' ', (value or '').lower()).strip()
+
+
+def _job_matches_search(job: Dict, search_term: str) -> bool:
+    if not search_term:
+        return True
+
+    query = _normalize_text(search_term)
+    if not query:
+        return True
+
+    query_parts = [part for part in query.split() if part]
+    haystack = _normalize_text(' '.join([
+        str(job.get('title', '')),
+        str(job.get('company', '')),
+        str(job.get('description', '')),
+        str(job.get('location', '')),
+    ]))
+
+    return query in haystack or any(part in haystack for part in query_parts)
 
 
 class GitHubJobsIntegration:
     """
-    Fetch jobs from RemoteOK API
-    Free API, no authentication required, actual remote jobs
-    (Note: GitHub Jobs API was shut down in 2024)
+    Fetch jobs from RemoteOK API.
+    Free API, no authentication required, actual remote jobs.
+    (Note: GitHub Jobs API was shut down in 2024.)
     """
+
     BASE_URL = "https://remoteok.io/api"
-    
+
     @classmethod
     def fetch_jobs(cls, search_term: str = "", location: str = "", page: int = 1) -> List[Dict]:
         """
-        Fetch jobs from RemoteOK API
-        
-        Args:
-            search_term: Job title to search for (e.g., 'python')
-            location: Location to search (not used by RemoteOK API)
-            page: Page number
-        
-        Returns:
-            List of job dictionaries
+        Fetch jobs from RemoteOK API.
         """
         try:
-            params = {}
-            
-            if search_term:
-                params['search'] = search_term
-            
-            # RemoteOK requires a User-Agent header to return JSON instead of HTML
             headers = {
                 'Accept': 'application/json',
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
             }
-            
-            response = requests.get(cls.BASE_URL, params=params, timeout=10, headers=headers)
+
+            response = requests.get(cls.BASE_URL, timeout=10, headers=headers)
             response.raise_for_status()
-            
+
             jobs = response.json()
-            
-            # Filter out metadata (first item at index 0)
-            # RemoteOK returns: [{metadata: {last_updated, legal}}, {job1}, {job2}, ...]
+
             if isinstance(jobs, list) and len(jobs) > 0:
                 jobs = jobs[1:]
-            
-            # Transform to standard format
+
             standardized_jobs = []
             for job in jobs:
                 if not isinstance(job, dict):
                     continue
-                    
-                # Build salary string if available
+
                 salary_str = None
                 if job.get('salary_min') or job.get('salary_max'):
                     salary_str = f"${job.get('salary_min', '')} - ${job.get('salary_max', '')}"
-                
+
                 standardized_jobs.append({
-                    'title': job.get('position', ''),  # RemoteOK uses 'position' not 'title'
+                    'title': job.get('position', ''),
                     'company': job.get('company', ''),
                     'location': job.get('location', 'Remote'),
                     'description': job.get('description', ''),
                     'job_url': job.get('url', ''),
-                    'posted_at': job.get('date', ''),  # RemoteOK uses 'date' not 'date_posted'
+                    'posted_at': job.get('date', ''),
                     'job_type': 'Job',
                     'source': 'RemoteOK',
                     'salary': salary_str,
-                    'trust_score': 90,  # RemoteOK is trusted
+                    'trust_score': 90,
                 })
-            
+
+            if search_term:
+                standardized_jobs = [job for job in standardized_jobs if _job_matches_search(job, search_term)]
+
             return standardized_jobs
-        
+
         except requests.exceptions.Timeout:
             print("RemoteOK API timeout - will try again later")
             return []
@@ -144,7 +154,11 @@ class DeveloperJobsIntegration:
                 title = job.get('title', '')
                 description = job.get('body_html', '')
                 
-                if search_term and search_term.lower() not in title.lower() + ' ' + description.lower():
+                if not _job_matches_search({
+                    'title': title,
+                    'description': description,
+                    'company': job.get('organization', {}).get('name', 'Unknown'),
+                }, search_term):
                     continue
                 
                 standardized_jobs.append({
@@ -211,7 +225,12 @@ class JustJoinITIntegration:
                 
                 # Filter by search term if provided
                 title = job.get('title', '')
-                if search_term and search_term.lower() not in title.lower():
+                if not _job_matches_search({
+                    'title': title,
+                    'description': job.get('description', '') or f"{job.get('title', '')} position",
+                    'company': job.get('company_name', ''),
+                    'location': ', '.join([job.get('city', ''), job.get('country_code', '')]).strip(', '),
+                }, search_term):
                     continue
                 
                 standardized_jobs.append({
@@ -263,9 +282,6 @@ class StackOverflowJobsIntegration:
                 'pagesize': min(limit, 100)
             }
             
-            if search_term:
-                params['tagged'] = search_term
-            
             response = requests.get(cls.BASE_URL, params=params, timeout=10)
             response.raise_for_status()
             
@@ -289,6 +305,9 @@ class StackOverflowJobsIntegration:
                     'salary': None,
                     'trust_score': 92,
                 })
+
+            if search_term:
+                standardized_jobs = [job for job in standardized_jobs if _job_matches_search(job, search_term)]
             
             return standardized_jobs
         
@@ -383,15 +402,13 @@ class IndeedIntegration:
 class LinkedInIntegration:
     """
     Fetch jobs from LinkedIn
-    Provides demo jobs by default since LinkedIn restricts unofficial API access
+    Returns no results unless a real LinkedIn integration is added.
     """
     
     @classmethod
     def fetch_jobs(cls, search_term: str = "software engineer", location: str = "USA") -> List[Dict]:
         """
         Fetch jobs from LinkedIn
-        
-        Returns demo jobs since LinkedIn official API requires special approval
         
         Args:
             search_term: Job title to search for
@@ -400,64 +417,9 @@ class LinkedInIntegration:
         Returns:
             List of job dictionaries
         """
-        # LinkedIn restricts unofficial API access heavily
-        # Return demo/sample LinkedIn jobs for now
-        return cls._fetch_jobs_demo(search_term)
-    
-    @classmethod
-    def _fetch_jobs_demo(cls, search_term: str = ""):
-        """
-        Return demo LinkedIn jobs
-        In production, you would use LinkedIn's official API with proper authentication
-        """
-        demo_jobs = [
-            {
-                'title': 'Senior Software Engineer',
-                'company': 'LinkedIn',
-                'location': 'San Francisco, CA',
-                'description': 'Join our engineering team to build next-generation social networking features',
-                'job_url': 'https://linkedin.com/jobs/view/12345',
-                'posted_at': '2026-04-10T00:00:00',
-                'job_type': 'Job',
-                'source': 'LinkedIn',
-                'salary': '$200,000 - $300,000',
-                'trust_score': 95,
-            },
-            {
-                'title': 'Full Stack Developer',
-                'company': 'Meta',
-                'location': 'Remote',
-                'description': 'Build scalable systems and work with cutting-edge technologies',
-                'job_url': 'https://linkedin.com/jobs/view/12346',
-                'posted_at': '2026-04-09T00:00:00',
-                'job_type': 'Job',
-                'source': 'LinkedIn',
-                'salary': '$180,000 - $280,000',
-                'trust_score': 95,
-            },
-            {
-                'title': 'Python Developer',
-                'company': 'Google',
-                'location': 'Mountain View, CA',
-                'description': 'Develop and maintain backend services using Python',
-                'job_url': 'https://linkedin.com/jobs/view/12347',
-                'posted_at': '2026-04-08T00:00:00',
-                'job_type': 'Job',
-                'source': 'LinkedIn',
-                'salary': '$190,000 - $290,000',
-                'trust_score': 95,
-            },
-        ]
-        
-        # Filter by search term if provided
-        if search_term:
-            search_lower = search_term.lower()
-            demo_jobs = [
-                j for j in demo_jobs 
-                if search_lower in j['title'].lower() or search_lower in j['description'].lower()
-            ]
-        
-        return demo_jobs
+        # LinkedIn does not expose a stable public jobs API here.
+        # Return no results instead of leaking demo jobs into production search.
+        return []
 
 
 class AdzunaIntegration:

@@ -52,11 +52,25 @@ export default function Recommendations() {
   const fetchRecommendations = React.useCallback(async () => {
     try {
       setLoading(true);
-      const response = await api.post('/jobs/recommendations', {
-        skills: selectedSkills,
-        top_n: 10
-      });
-      setRecommendations(response.data.recommendations || []);
+      let recommendationsResponse = null;
+
+      if (selectedSkills.length > 0) {
+        try {
+          recommendationsResponse = await api.post('/jobs/recommendations', {
+            skills: selectedSkills,
+            top_n: 10
+          });
+        } catch (postError) {
+          console.error(postError);
+        }
+      }
+
+      if (!recommendationsResponse || !recommendationsResponse.data?.recommendations?.length) {
+        recommendationsResponse = await api.get('/recommendations');
+      }
+
+      const recommendationsList = recommendationsResponse.data.recommendations || [];
+      setRecommendations(recommendationsList);
       setError(null);
     } catch (err) {
       setError('Failed to fetch recommendations');
@@ -69,6 +83,11 @@ export default function Recommendations() {
   const saveJob = async (jobId) => {
     try {
       const job = recommendations.find(j => j.id === jobId);
+      if (!job || job.source === 'Demo') {
+        alert('Import this job first before saving it.');
+        return;
+      }
+
       await api.post('/profile/save-job', {
         opportunity_id: jobId,
         match_score: job.match_score,
@@ -86,9 +105,7 @@ export default function Recommendations() {
   }, []);
 
   useEffect(() => {
-    if (selectedSkills.length > 0) {
-      fetchRecommendations();
-    }
+    fetchRecommendations();
   }, [selectedSkills, fetchRecommendations]);
 
   if (loading) {
@@ -261,6 +278,7 @@ export default function Recommendations() {
                   <div className="flex gap-4">
                     <button
                       onClick={() => saveJob(job.id)}
+                      disabled={job.source === 'Demo'}
                       className="flex items-center gap-2 rounded-full bg-slate-900 px-5 py-2.5 font-medium text-white transition hover:bg-slate-800"
                     >
                       <Bookmark size={18} />
@@ -284,9 +302,9 @@ export default function Recommendations() {
           </div>
         ) : (
           <div className="surface-card p-8 text-center">
-            <h2 className="text-2xl font-bold text-slate-900">No recommendations yet</h2>
+            <h2 className="text-2xl font-bold text-slate-900">No live recommendations yet</h2>
             <p className="mt-3 text-slate-600">
-              Add a few skills in your profile, then import jobs so the recommendation engine has data to rank.
+              Add a few skills in your profile, then import live jobs so the recommendation engine has data to rank.
             </p>
             <div className="mt-6 flex flex-wrap justify-center gap-3">
               <button

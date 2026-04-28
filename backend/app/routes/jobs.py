@@ -136,7 +136,7 @@ def fetch_jobs_from_source(source):
                 'success': False,
                 'error': f'Unknown source: {source}. Available: adzuna, jooble, remoteok, devto, justjoinit, stackoverflow, indeed, linkedin, demo'
             }), 400
-        
+
         return jsonify({
             'success': True,
             'source': source,
