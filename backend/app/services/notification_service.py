@@ -8,7 +8,6 @@ from typing import Any, Dict, List, Tuple
 from apscheduler.schedulers.background import BackgroundScheduler
 from sqlalchemy import or_
 
-from app import db
 from app.models import Opportunity, User
 from app.services.skill_matching import SkillMatcher
 
@@ -39,6 +38,8 @@ class NotificationService:
 
     @staticmethod
     def update_settings(user: User, updates: Dict[str, Any]) -> Dict[str, Any]:
+        from app import db
+        
         preferences = user.preferences or {}
         notifications = preferences.get('notifications') or {}
 
