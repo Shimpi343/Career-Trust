@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bookmark, TrendingUp, LogOut, User } from 'lucide-react';
+import { Bookmark, TrendingUp, LogOut, User, BadgeAlert, CheckCircle2 } from 'lucide-react';
 import api from '../api';
 
 export default function Dashboard() {
@@ -128,6 +128,55 @@ export default function Dashboard() {
         </section>
       )}
 
+      {dashboardData && (
+        <section className="surface-card p-6 md:p-8">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-bold tracking-tight text-slate-900">Profile progress</h2>
+              <p className="mt-2 text-sm text-slate-500">A quick view of your completion and the sections still missing.</p>
+            </div>
+            <div className="rounded-2xl bg-blue-50 px-4 py-3 text-blue-700">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em]">Completion</p>
+              <p className="mt-1 text-3xl font-black">{dashboardData.profile_completion || 0}%</p>
+            </div>
+          </div>
+
+          <div className="mt-6 h-3 rounded-full bg-slate-100">
+            <div className="h-3 rounded-full bg-blue-600" style={{ width: `${dashboardData.profile_completion || 0}%` }} />
+          </div>
+
+          <div className="mt-6 grid gap-4 md:grid-cols-2">
+            <div className="rounded-2xl bg-emerald-50 p-4">
+              <div className="flex items-center gap-2 text-emerald-700">
+                <CheckCircle2 size={18} />
+                <h3 className="font-semibold">Completed</h3>
+              </div>
+              <p className="mt-2 text-sm text-emerald-800">
+                Resume, skills, and saved activity all contribute to stronger matches.
+              </p>
+            </div>
+
+            <div className="rounded-2xl bg-amber-50 p-4">
+              <div className="flex items-center gap-2 text-amber-700">
+                <BadgeAlert size={18} />
+                <h3 className="font-semibold">Missing sections</h3>
+              </div>
+              {dashboardData.missing_sections?.length ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {dashboardData.missing_sections.map((section) => (
+                    <span key={section} className="rounded-full bg-white px-3 py-1 text-sm font-medium text-amber-800">
+                      {section}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-amber-800">No missing sections right now. Nice work.</p>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
       <section>
         <div className="mb-6 flex items-end justify-between gap-4">
           <div>
@@ -147,12 +196,12 @@ export default function Dashboard() {
           </button>
 
           <button
-            onClick={() => navigate('/opportunities')}
+            onClick={() => navigate('/saved-jobs')}
             className="surface-card group p-6 text-left transition hover:-translate-y-1 hover:shadow-2xl"
           >
             <div className="text-3xl mb-3">💾</div>
-            <h3 className="text-xl font-bold text-slate-900">Browse Jobs</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-600">Browse all job opportunities.</p>
+            <h3 className="text-xl font-bold text-slate-900">Saved Jobs</h3>
+            <p className="mt-2 text-sm leading-6 text-slate-600">Review bookmarked jobs and mark them applied.</p>
           </button>
 
           <button
