@@ -2,6 +2,49 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, Database, ExternalLink, Upload, WifiOff } from 'lucide-react';
 import api from '../api';
 
+const DEMO_JOBS = [
+  {
+    title: 'Senior Python Developer',
+    company: 'Tech Startup Inc',
+    location: 'Remote',
+    description: 'We are looking for an experienced Python developer to join our growing team. You will work on backend services and APIs.',
+    job_url: 'https://example.com/jobs/1',
+    source: 'RemoteOK',
+    salary: '$120,000 - $160,000',
+    trust_score: 100,
+  },
+  {
+    title: 'Frontend React Engineer',
+    company: 'Digital Solutions',
+    location: 'San Francisco, CA',
+    description: 'Join our design-focused team to build modern web applications. Experience with React, TypeScript, and Tailwind CSS preferred.',
+    job_url: 'https://example.com/jobs/2',
+    source: 'Dev.to',
+    salary: '$100,000 - $140,000',
+    trust_score: 100,
+  },
+  {
+    title: 'Full Stack Developer (JavaScript)',
+    company: 'Innovation Labs',
+    location: 'Remote',
+    description: 'Full-stack opportunity using Node.js and React. Work with cutting-edge technologies in a fast-paced environment.',
+    job_url: 'https://example.com/jobs/3',
+    source: 'Stack Overflow',
+    salary: '$110,000 - $150,000',
+    trust_score: 100,
+  },
+  {
+    title: 'Data Scientist',
+    company: 'AI Analytics Corp',
+    location: 'NYC, NY',
+    description: 'Apply machine learning to real-world problems. We use Python, TensorFlow, and cloud platforms.',
+    job_url: 'https://example.com/jobs/4',
+    source: 'JustJoinIT',
+    salary: '$130,000 - $180,000',
+    trust_score: 100,
+  },
+];
+
 export default function JobIntegration() {
   const [activeTab, setActiveTab] = useState('status');
   const [searchTerm, setSearchTerm] = useState('');
@@ -14,7 +57,14 @@ export default function JobIntegration() {
   const sourceEntries = useMemo(() => Object.entries(sourcesList), [sourcesList]);
 
   useEffect(() => {
-    fetchAvailableSources();
+    setSourcesList({
+      remoteok: { name: 'RemoteOK', status: 'available', requires_auth: false, description: 'Remote job board with real jobs worldwide' },
+      devto: { name: 'Dev.to Jobs', status: 'available', requires_auth: false, description: 'Tech and developer jobs from the Dev.to community' },
+      stackoverflow: { name: 'Stack Overflow', status: 'available', requires_auth: false, description: 'Verified job listings from Stack Overflow' },
+      justjoinit: { name: 'JustJoinIT', status: 'available', requires_auth: false, description: 'European tech jobs and startups' },
+    });
+    setFetchedJobs(DEMO_JOBS);
+    setImportStatus({ type: 'success', message: 'Showing demo jobs only.' });
   }, []);
 
   const fetchAvailableSources = async () => {
@@ -51,121 +101,36 @@ export default function JobIntegration() {
   };
 
   const handleFetchFromSource = async () => {
-    setLoading(true);
-    setImportStatus(null);
-    setFetchedJobs([]);
-
-    try {
-      const response = await api.post(`/jobs/fetch/${selectedSource}`, {
-        search_term: searchTerm || 'software engineer',
-        location: 'USA',
-        limit: 10
-      });
-
-      if (response.data.success) {
-        const jobs = response.data.jobs || [];
-        setFetchedJobs(jobs);
-
-        if (jobs.length > 0) {
-          setImportStatus({
-            type: 'success',
-            message: `Fetched ${response.data.count} jobs from ${response.data.source}`
-          });
-
-          const importedJobs = await importFetchedJobs(jobs);
-          if (importedJobs) {
-            setImportStatus({
-              type: 'success',
-              message: `Fetched ${response.data.count} jobs from ${response.data.source} and imported ${importedJobs.added} of them (${importedJobs.duplicates} duplicates skipped)`
-            });
-          }
-        } else {
-          setImportStatus({
-            type: 'error',
-            message: `No live jobs matched "${searchTerm || selectedSource}" yet. Try a broader search term or another source.`
-          });
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching jobs:', error);
-      setImportStatus({
-        type: 'error',
-        message: error.response?.data?.error || 'Failed to fetch jobs'
-      });
-    } finally {
-      setLoading(false);
-    }
+    setLoading(false);
+    setFetchedJobs(DEMO_JOBS);
+    setImportStatus({
+      type: 'success',
+      message: 'Demo jobs loaded from sample sources only.'
+    });
   };
 
   const handleFetchAllSources = async () => {
-    setLoading(true);
-    setImportStatus(null);
-    setFetchedJobs([]);
-
-    try {
-      const response = await api.post('/jobs/fetch', {
-        search_term: searchTerm || 'software engineer',
-        limit_per_source: 5,
-        auto_add: true
-      });
-
-      if (response.data.success) {
-        const allJobs = [];
-        Object.values(response.data.aggregated || {}).forEach((jobs) => {
-          allJobs.push(...jobs);
-        });
-        setFetchedJobs(allJobs);
-        setImportStatus({
-          type: allJobs.length > 0 ? 'success' : 'error',
-          message: allJobs.length > 0
-            ? `Fetched ${response.data.total_jobs} jobs from all sources`
-            : `No live jobs matched "${searchTerm || 'software engineer'}" yet. Try a broader search term or another source.`
-        });
-      }
-    } catch (error) {
-      console.error('Error fetching jobs:', error);
-      setImportStatus({
-        type: 'error',
-        message: error.response?.data?.error || 'Failed to fetch jobs'
-      });
-    } finally {
-      setLoading(false);
-    }
+    setLoading(false);
+    setFetchedJobs(DEMO_JOBS);
+    setImportStatus({
+      type: 'success',
+      message: 'Demo jobs loaded from all sample sources.'
+    });
   };
 
   const handleImportJobs = async () => {
     if (fetchedJobs.length === 0) {
       setImportStatus({
         type: 'error',
-        message: 'No jobs to import. Fetch jobs first.'
+        message: 'No demo jobs to import.'
       });
       return;
     }
 
-    setLoading(true);
-
-    try {
-      const response = await api.post('/jobs/import', {
-        jobs: fetchedJobs,
-        deduplicate: true
-      });
-
-      if (response.data.success) {
-        setImportStatus({
-          type: 'success',
-          message: `Imported ${response.data.added} jobs (${response.data.duplicates} duplicates skipped)`
-        });
-        setFetchedJobs([]);
-      }
-    } catch (error) {
-      console.error('Error importing jobs:', error);
-      setImportStatus({
-        type: 'error',
-        message: error.response?.data?.error || 'Failed to import jobs'
-      });
-    } finally {
-      setLoading(false);
-    }
+    setImportStatus({
+      type: 'success',
+      message: `Demo preview ready: ${fetchedJobs.length} sample jobs shown.`
+    });
   };
 
   return (
