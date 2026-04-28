@@ -235,9 +235,6 @@ class StackOverflowJobsIntegration:
                 'pagesize': min(limit, 100)
             }
             
-            if search_term:
-                params['tagged'] = search_term
-            
             response = requests.get(cls.BASE_URL, params=params, timeout=10)
             response.raise_for_status()
             
@@ -261,6 +258,9 @@ class StackOverflowJobsIntegration:
                     'salary': None,
                     'trust_score': 92,
                 })
+
+            if search_term:
+                standardized_jobs = [job for job in standardized_jobs if _job_matches_search(job, search_term)]
             
             return standardized_jobs
         
